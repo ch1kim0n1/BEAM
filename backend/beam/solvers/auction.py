@@ -56,6 +56,12 @@ __all__ = ["AuctionSolver"]
 # Numerical floor shared with the physics module's reasoning about reach.
 _EPS = 1e-12
 
+# Solver hysteresis: multiplicative bias the matching gives a turret's current target
+# so the value-maximizing assignment does not reshuffle primaries every epoch (which
+# re-slews turrets off a target mid-dwell and loses progress). Algorithm tunable, not a
+# physics/cost constant. >1 favors commitment (pdd.md 6: "commit through to kill or abort").
+_STICKINESS_BONUS = 1.5
+
 
 @register("auction")
 class AuctionSolver:
@@ -112,6 +118,18 @@ class AuctionSolver:
                 if np.isfinite(completion) and completion <= tti[j] + _EPS:
                     benefit[i, j] = drones[j].value
 
+        # Hysteresis: bias each turret toward the target it is already engaging so the
+        # value-maximizing matching does not swap primaries every epoch and re-slew off
+        # a mid-dwell kill (pdd.md 6 "commit through to kill or abort"). Only where the
+        # ongoing engagement is still feasible (benefit > 0).
+        id_to_j = {d.id: j for j, d in enumerate(drones)}
+        for i, tur in enumerate(turrets):
+            cur = tur.current_target
+            if cur is not None:
+                j = id_to_j.get(cur, -1)
+                if j >= 0 and benefit[i, j] > 0.0:
+                    benefit[i, j] *= _STICKINESS_BONUS
+
         # Max-weight linear assignment (one target per turret) via auction.
         rng = self._rng_for(state)
         assigned_col = self._auction_assign(benefit, rng, t_start, deadline_s)
@@ -146,7 +164,13 @@ class AuctionSolver:
                     range_falloff=self._track_range_falloff,
                 )
                 dep = physics.deposition_rate(p_del, eta)
-                out[i, j] = float(physics.dwell_to_kill(dr.hardness, dep))
+                # Dwell on the energy STILL needed, not full hardness: a target already
+                # part-killed (energy_absorbed > 0) needs only its remainder, so an
+                # in-progress engagement stays feasible/cheap and the auction keeps it
+                # instead of thrashing to a fresh target (pdd.md 8.3/8.6). Physically
+                # correct — only the remaining energy must be delivered.
+                remaining = max(0.0, dr.hardness - dr.energy_absorbed)
+                out[i, j] = float(physics.dwell_to_kill(remaining, dep))
         return out
 
     def _slew_from_current(
