@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "beam"
+version = "0.1.0"
+description = "BEAM — Battle Engagement & Aerial Mitigation: a simulation and OR-analysis tool for the Dynamic Weapon-Target Assignment problem (laser battery vs drone swarm)."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Vlad" }]
+dependencies = [
+    "numpy",
+    "ortools",
+    "fastapi",
+    "uvicorn[standard]",
+    "websockets",
+    "pydantic>=2",
+    "pyyaml",
+    "pytest",
+    "httpx",
+]
+
+[project.scripts]
+beam = "beam.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["beam*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

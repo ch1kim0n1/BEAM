@@ -1,0 +1,37 @@
+# BEAM batch sweep: "breakeven".
+#
+# Sweeps swarm size against a base scenario to produce the cost-exchange breakeven
+# curve (pdd.md section 10) and a gap-vs-scale series (pdd.md section 15 Phase 2).
+# Each swarm size is run on a fixed seed so the comparison is fair and reproducible.
+#
+# The batch agent owns the typed sweep model; this is the raw spec it reads via
+# beam.config.load_sweep("breakeven").
+
+id: breakeven
+description: >
+  Sweep swarm size to find the net-position crossover (breakeven) and the
+  gap-vs-swarm-size curve. Per-shot the laser wins instantly; the crossover is where
+  cumulative value destroyed overtakes cumulative cost.
+
+base_scenario: swarm_24        # scenario preset to clone for each sweep point
+seed: 1337                     # fixed seed across all points for fair comparison
+
+# The swept parameter and the values to evaluate.
+sweep:
+  parameter: swarm_spec.count
+  values: [4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
+
+# Solvers evaluated at every sweep point (all run on the identical seeded snapshot).
+solvers:
+  - greedy_nearest
+  - greedy_threat
+  - greedy_urgent
+  - auction
+  - ga
+  - cp_sat
+
+# Series the sweep should emit (consumed by the breakeven + gap-vs-scale charts).
+outputs:
+  - net_position_vs_swarm_size
+  - breakeven_crossover
+  - gap_vs_swarm_size
