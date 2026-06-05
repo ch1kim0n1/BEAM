@@ -13,8 +13,14 @@ suite, so ``GET /api/solvers`` is populated and runs can race every policy.
 
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Comma-separated list of allowed origins, e.g. "http://localhost:5173,https://myapp.example.com".
+# Defaults to "*" (allow all) for local development convenience; restrict in production.
+CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "*").split(",")
 
 # Importing the solvers package registers every concrete solver in REGISTRY (side
 # effect via @register). The catalog + race depend on this having happened.
@@ -41,7 +47,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=CORS_ORIGINS,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],

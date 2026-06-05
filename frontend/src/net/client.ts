@@ -54,6 +54,10 @@ export interface BeamClientOptions {
 }
 
 function defaultBaseUrl(): string {
+  // Allow the build-time env var to override (e.g. VITE_API_URL=http://api.example.com).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const envUrl = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) as string | undefined;
+  if (envUrl) return envUrl;
   if (typeof window !== "undefined" && window.location) {
     return window.location.origin;
   }
