@@ -32,14 +32,17 @@ It is a simulation and analysis tool. No hardware, no real weapon parameters, al
 
 ## Demo
 
-> Screenshots / GIF go here.
+<p align="center">
+  <img src="docs/media/battlefield.png" alt="BEAM running the swarm_24 scenario (seed 1337): a four-turret laser battery at center, a 24-drone swarm closing in on concentric range rings, with the live solver-race and cost-exchange dashboards on the right" width="95%" /><br/>
+  <em>Live run — <code>swarm_24</code>, seed 1337, <code>auction</code> solver. Four turrets defend the asset against a 24-drone swarm; the right rail streams the solver-race objective/gap and the cost-exchange breakeven curve in real time.</em>
+</p>
 
-```
-docs/media/
-  ├── battlefield.gif      # turrets slewing, beams dwelling, swarm closing
-  ├── solver_race.png      # two policies, one seed, divergent outcomes
-  └── breakeven.png        # net-position crossover
-```
+<p align="center">
+  <img src="docs/media/battlefield-late.png" alt="The same run a few seconds later: the swarm has closed to a tighter ring and the cost-exchange net line has fallen to about -250 as the battery spends energy" width="95%" /><br/>
+  <em>Seconds later — the swarm has pressed inward and the cost ledger's net position tracks every shot's energy spend against destroyed value.</em>
+</p>
+
+> Real captures of the running Pixi.js frontend (`beam serve` + `npm run dev`, then **▶ Load demo (swarm_24)**). Animated GIFs of the full engagement are captured per the same flow.
 
 ---
 
