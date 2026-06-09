@@ -79,10 +79,24 @@ class AuctionSolver:
         self,
         seed: int = 1337,
         *,
-        track_base: float = 1.0,
-        track_range_falloff: float = 0.0015,
+        track_base: Optional[float] = None,
+        track_range_falloff: Optional[float] = None,
     ) -> None:
         self._seed = int(seed)
+        # Mirror physics.track_efficiency from config when not explicitly given, so the
+        # solver's dwell-to-kill feasibility scoring matches what the engine actually
+        # integrates. A hardcoded steeper falloff made the solver believe distant
+        # targets were unkillable and refuse to assign them until the swarm closed in —
+        # the laser only engaged at short range despite its true reach. (Same
+        # config-defaulting pattern as cp_sat / greedy_nearest / metaheuristic.)
+        if track_base is None or track_range_falloff is None:
+            from beam.config import load_config
+
+            te = load_config().physics.track_efficiency
+            if track_base is None:
+                track_base = te.base
+            if track_range_falloff is None:
+                track_range_falloff = te.range_falloff
         self._track_base = float(track_base)
         self._track_range_falloff = float(track_range_falloff)
 
@@ -313,6 +327,18 @@ class AuctionSolver:
         taken = [False] * n_j  # at-most-one-turret-per-target (pdd.md 7.3)
         orders: dict[str, list[str]] = {}
         objective = 0.0
+
+        # Reserve every turret's auction-assigned primary up front. Without this, an
+        # earlier-indexed turret's greedy "extras" scan (which only excludes already-
+        # taken targets) could grab a later turret's primary, which that later turret
+        # then re-queues unconditionally — double-claiming one target. The steep legacy
+        # track falloff hid this by making few extras feasible; at realistic laser reach
+        # many extras are feasible and the collision surfaces (pdd.md 7.3: a target is
+        # assigned to at most one turret).
+        for i in range(n_i):
+            primary = assigned_col[i]
+            if primary is not None and primary >= 0 and benefit[i, primary] > 0.0:
+                taken[primary] = True
 
         # Iterate turrets in fixed order for determinism.
         for i in range(n_i):

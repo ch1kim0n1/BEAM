@@ -52,13 +52,23 @@ from beam.solvers.base import register
 from beam.util import heading_to, vdist
 
 # Track-efficiency coefficients are not carried on the WorldState snapshot (only the
-# resolved weather alpha is). pdd.md section 18 documents the defaults; we estimate
-# dwell-to-kill with a perfect (1.0) track quality and the documented falloff. These
-# are *estimation* coefficients for scoring, not authoritative physics — the engine
-# applies the real config-resolved values when it integrates kills.
+# resolved weather alpha is). We read them from config (pdd.md section 18) so the
+# dwell-to-kill *estimate* used for scoring matches the falloff the engine actually
+# integrates — otherwise a steeper hardcoded falloff makes distant targets look
+# unkillable and the solver under-engages at range. Same import-time read as
+# greedy_threat; falls back to published defaults if config is unavailable.
 _TRACK_QUALITY: float = 1.0
 _TRACK_BASE: float = 1.0
 _TRACK_RANGE_FALLOFF: float = 0.0015
+
+try:  # pragma: no cover - config is present in normal operation
+    from beam.config import load_config as _load_config
+
+    _te = _load_config().physics.track_efficiency
+    _TRACK_BASE = float(_te.base)
+    _TRACK_RANGE_FALLOFF = float(_te.range_falloff)
+except Exception:  # pragma: no cover - fall back to published defaults
+    pass
 
 
 def _remaining_e_kill(drone: Drone) -> float:

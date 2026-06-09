@@ -124,7 +124,7 @@ def test_load_defaults():
     cfg = load_config()
     assert isinstance(cfg, BeamConfig)
     assert cfg.sim.seed == 1337
-    assert cfg.weather("clear").alpha == pytest.approx(0.002)
+    assert cfg.weather("clear").alpha == pytest.approx(0.0002)
     assert cfg.weather("clear").name == "clear"  # name injected from key
     assert cfg.drone_class("quad_small").hardness == 40
     assert cfg.turret_defaults.thermal.h_max == 100
