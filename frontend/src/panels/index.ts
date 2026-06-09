@@ -25,3 +25,20 @@ export {
   type ValueAccumulator,
   type ScoreboardOptions,
 } from "./scoreboard";
+
+export {
+  RunReport,
+  computeReportMetrics,
+  fmtMoney,
+  fmtPct,
+  fmtGap,
+  fmtMs,
+  fmtRatio,
+  fmtClock,
+  shortHash,
+  type RunReportData,
+  type RunReportContext,
+  type RunReportOptions,
+  type ReportMetrics,
+  type SolverRow,
+} from "./report";

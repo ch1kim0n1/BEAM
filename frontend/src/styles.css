@@ -41,7 +41,14 @@ body {
   height: 100vh;
 }
 
-/* Subtle scanline texture over the whole app (14.3). */
+/* Subtle scanline texture over the whole app (14.3).
+ *
+ * Perf: this overlay is promoted to its own compositor layer (`transform:
+ * translateZ(0)` + `will-change`) and uses plain alpha rather than
+ * `mix-blend-mode`. A blend mode here forced the browser to re-rasterize the
+ * whole viewport against the backdrop every time the WebGL battlefield repainted
+ * (~60fps), which is what made the demo feel laggy. An isolated, statically-
+ * composited alpha layer costs effectively nothing per frame. */
 body::after {
   content: "";
   position: fixed;
@@ -52,9 +59,11 @@ body::after {
     to bottom,
     rgba(0, 0, 0, 0) 0,
     rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.06) 3px
+    rgba(0, 0, 0, 0.05) 3px
   );
-  mix-blend-mode: multiply;
+  opacity: 0.85;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 /* --- App shell ----------------------------------------------------------- */
@@ -108,7 +117,8 @@ body::after {
 }
 
 .beam-wow,
-.beam-mode-toggle {
+.beam-mode-toggle,
+.beam-report-toggle {
   font-family: var(--beam-font);
   font-size: 12px;
   letter-spacing: 0.06em;
@@ -140,6 +150,19 @@ body::after {
   border-color: var(--beam-amber);
   color: var(--beam-amber);
   box-shadow: 0 0 14px rgba(251, 191, 36, 0.3);
+}
+.beam-report-toggle {
+  background: transparent;
+  color: var(--beam-cyan);
+  border: 1px solid var(--beam-line-strong);
+}
+.beam-report-toggle:hover:not(:disabled) {
+  border-color: var(--beam-cyan);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+}
+.beam-report-toggle:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .beam-status {
@@ -349,5 +372,257 @@ body::after {
 @media (max-width: 1100px) {
   .beam-body {
     grid-template-columns: 200px 1fr 280px;
+  }
+}
+
+/* --- After-action report overlay (panels/report.ts) ---------------------- */
+
+.beam-report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 6, 8, 0.78);
+  backdrop-filter: blur(4px);
+}
+.beam-report-overlay.is-open {
+  display: flex;
+  animation: beam-report-fade 0.18s ease-out;
+}
+@keyframes beam-report-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.beam-report {
+  width: min(960px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: linear-gradient(180deg, var(--beam-panel-2), var(--beam-panel));
+  border: 1px solid var(--beam-line-strong);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.08),
+    0 24px 80px rgba(0, 0, 0, 0.6);
+  padding: 22px 24px 18px;
+}
+
+.beam-report-head {
+  border-bottom: 1px solid var(--beam-line);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+.beam-report-title {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--beam-text);
+}
+.beam-report-scn {
+  margin-left: 10px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--beam-cyan);
+}
+.beam-report-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--beam-text-muted);
+}
+
+/* Headline KPI strip. */
+.beam-report-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.beam-report-kpi {
+  padding: 12px 14px;
+  border: 1px solid var(--beam-line);
+  border-radius: 6px;
+  background: rgba(5, 8, 10, 0.5);
+}
+.beam-report-kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--beam-text);
+}
+.beam-report-kpi-label {
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--beam-text-muted);
+}
+.beam-report-kpi-hint {
+  margin-top: 2px;
+  font-size: 10px;
+  color: rgba(160, 190, 180, 0.45);
+}
+.beam-report-kpi.tone-pos {
+  border-color: rgba(52, 211, 153, 0.45);
+}
+.beam-report-kpi.tone-pos .beam-report-kpi-value {
+  color: var(--beam-emerald);
+}
+.beam-report-kpi.tone-neg {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+.beam-report-kpi.tone-neg .beam-report-kpi-value {
+  color: var(--beam-red);
+}
+.beam-report-kpi.tone-accent .beam-report-kpi-value {
+  color: var(--beam-cyan);
+}
+
+/* Two-column detail. */
+.beam-report-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.beam-report-section {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--beam-emerald);
+  margin: 4px 0 8px;
+}
+.beam-report-col > .beam-report-section:not(:first-child) {
+  margin-top: 18px;
+}
+.beam-report-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.beam-report-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  padding: 3px 0;
+  border-bottom: 1px dotted var(--beam-line);
+}
+.beam-report-key {
+  color: var(--beam-text-muted);
+}
+.beam-report-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--beam-text);
+  text-align: right;
+  word-break: break-word;
+}
+
+/* Solver leaderboard. */
+.beam-report-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--beam-line);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.beam-report-trow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--beam-line);
+}
+.beam-report-trow:last-child {
+  border-bottom: none;
+}
+.beam-report-trow.head {
+  background: rgba(5, 8, 10, 0.6);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--beam-text-muted);
+}
+.beam-report-trow.active {
+  background: rgba(56, 189, 248, 0.1);
+}
+.beam-report-trow.active .beam-report-tcell.solver {
+  color: var(--beam-cyan);
+  font-weight: 700;
+}
+.beam-report-tcell.gap,
+.beam-report-tcell.ms {
+  text-align: right;
+  min-width: 64px;
+}
+.beam-report-tlegend {
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--beam-text-muted);
+  background: rgba(5, 8, 10, 0.4);
+}
+.beam-report-note {
+  margin-top: 10px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--beam-text-muted);
+  border-left: 2px solid var(--beam-emerald-dim);
+  padding-left: 8px;
+}
+
+/* Actions. */
+.beam-report-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--beam-line);
+}
+.beam-report-btn {
+  font-family: var(--beam-font);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--beam-panel-2);
+  color: var(--beam-text);
+  border: 1px solid var(--beam-line-strong);
+  transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+.beam-report-btn:hover {
+  border-color: var(--beam-emerald);
+  color: var(--beam-emerald);
+}
+.beam-report-btn.primary {
+  background: var(--beam-emerald);
+  color: #03110c;
+  border-color: var(--beam-emerald);
+  font-weight: 700;
+}
+.beam-report-btn.primary:hover {
+  color: #03110c;
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.45);
+}
+
+@media (max-width: 720px) {
+  .beam-report-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .beam-report-body {
+    grid-template-columns: 1fr;
   }
 }

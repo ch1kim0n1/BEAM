@@ -1,16 +1,23 @@
 // Pixi.js battlefield renderer (pdd.md 14.1, 14.3, 14.4).
 //
-// Renders one seeded scenario's live telemetry: the protected asset at the world
-// origin, turret emplacements that visibly rotate to their aim, beams drawn
-// turret -> target with intensity scaled by delivered power, and drones colored by
-// value class with a shrinking kill-progress ring and a thin heading vector. Leaks
-// flash red at the asset.
+// Renders one seeded scenario's live telemetry in a 2.5D tactical perspective:
+// the ground plane is tilted away from the camera (depth-squashed projection) so
+// the scene reads as a battlespace seen from above-and-behind rather than a flat
+// radar. The protected asset sits at the world origin; turret emplacements stand
+// on the ground and visibly slew their barrels to aim; drones FLY above the plane
+// — each casts a ground shadow and is connected to it by a faint tether, so
+// altitude and depth are legible at a glance. Beams lance from elevated turret
+// muzzles to the drones with a bright core + bloom; kills throw a particle burst
+// and a shock ring; leaks flash the asset red and kick the camera (screen shake).
+// A slow camera drift + breath keeps the frozen-on-projector demo feeling alive.
 //
 // Performance contract (14.4): display objects are pooled per entity id and never
 // recreated per frame; only their transform / tint / geometry is mutated. Render
 // position is interpolated between the two most recent telemetry frames so motion
 // stays smooth at 60fps even when telemetry arrives at a lower cadence (the sim's
-// decision period). All wire shapes come from ../types — nothing is redefined here.
+// decision period). The render resolution is capped (below) so high-DPI screens do
+// not pay 4x fill cost. All wire shapes come from ../types — nothing is redefined
+// here.
 
 import {
   Application,
@@ -82,36 +89,67 @@ export interface BattlefieldOptions {
   framePeriodS?: number;
   /** Pre-allocate this many drone slots in the pool. Default 0 (grows on demand). */
   prewarmDrones?: number;
+  /** Depth squash for the 2.5D ground plane (0..1; 1 = flat top-down). Default 0.62. */
+  depthSquash?: number;
+  /** Disable the idle camera drift/breath (e.g. for deterministic capture). */
+  staticCamera?: boolean;
 }
 
 // --------------------------------------------------------------------------- //
 // Pooled per-entity display objects                                            //
 // --------------------------------------------------------------------------- //
 
-/** One drone's pooled display objects. Marker + kill-progress ring + heading. */
+/** One drone's pooled display objects. A flying marker above a ground shadow. */
 interface DroneSprite {
-  root: Container;
-  marker: Graphics; // value-class colored body
+  root: Container; // positioned at the drone's elevated screen point
+  shadow: Graphics; // ground ellipse at the projected ground point
+  tether: Graphics; // faint vertical line shadow -> craft (altitude cue)
+  glow: Graphics; // soft halo behind the marker
   ring: Graphics; // shrinking kill-progress ring (redrawn only when hp changes)
   heading: Graphics; // thin velocity vector
+  marker: Graphics; // value-class colored body
   /** Cached geometry inputs so we only redraw Graphics when they actually change. */
   drawnHp: number;
   drawnTint: number;
   drawnState: string;
+  /** Per-drone bob phase so altitude oscillation is desynchronised. */
+  phase: number;
 }
 
-/** One turret's pooled display objects. Body + barrel that rotates to aim. */
+/** One turret's pooled display objects. Emplacement + barrel that rotates to aim. */
 interface TurretSprite {
   root: Container;
-  base: Graphics;
-  barrel: Graphics; // rotated to `aim`
+  shadowBase: Graphics; // ground footprint ellipse
+  base: Graphics; // raised emplacement body
+  barrel: Graphics; // redrawn toward the projected aim each frame
+  muzzle: Graphics; // firing flash at the barrel tip
   drawnState: string;
+}
+
+/** A live particle from a kill burst. Pooled; reset on (re)acquire. */
+interface Particle {
+  gfx: Graphics;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number; // seconds remaining
+  maxLife: number;
+  color: number;
+  size: number;
 }
 
 /** A frame paired with the wall-clock time it was received, for interpolation. */
 interface TimedFrame {
   frame: FrameMessage;
   recvMs: number;
+}
+
+/** A queued kill effect: spawn a burst at this world point on the next render. */
+interface KillEvent {
+  x: number;
+  y: number;
+  color: number;
 }
 
 // --------------------------------------------------------------------------- //
@@ -121,10 +159,19 @@ interface TimedFrame {
 const DRONE_MARKER_R = 5;
 const DRONE_RING_R = 11;
 const HEADING_LEN = 18;
-const TURRET_R = 13;
-const TURRET_BARREL_LEN = 22;
+const TURRET_R = 12;
+const TURRET_BARREL_LEN = 26;
+const TURRET_HEIGHT = 14; // screen px the muzzle sits above the ground footprint
+const DRONE_ALT = 34; // screen px a drone flies above its ground shadow
+const DRONE_BOB = 4; // +/- screen px of altitude bob
 const ASSET_R = 18;
 const LEAK_FLASH_MS = 600;
+const SHAKE_MS = 380;
+const PARTICLES_PER_KILL = 14;
+/** Cap render resolution: high-DPI screens otherwise pay 4x+ fill for no visible
+ *  gain on this line-art scene, which is a real source of demo lag (esp. in the
+ *  two-canvas solver-race view). 1.5 keeps edges crisp without the 4K tax. */
+const MAX_RESOLUTION = 1.5;
 
 export class Battlefield {
   readonly app: Application;
@@ -134,14 +181,18 @@ export class Battlefield {
   > & { framePeriodS?: number };
   private readonly parent: HTMLElement;
 
-  // Display layers (back -> front).
+  // Display layers (back -> front). All live under `world`, which carries the
+  // 2.5D camera transform (drift + shake) about the view centre.
   private readonly world = new Container();
   private readonly gridLayer = new Graphics();
   private readonly assetLayer = new Container();
+  private readonly assetGlow = new Graphics(); // pulsing ground glow under asset
   private readonly leakFlashGfx = new Graphics();
+  private readonly shadowLayer = new Container(); // all ground shadows (under everything)
   private readonly beamLayer = new Graphics();
   private readonly turretLayer = new Container();
   private readonly droneLayer = new Container();
+  private readonly fxLayer = new Container(); // particles + shock rings (topmost)
 
   // Pools keyed by entity id (never recreated per frame).
   private readonly dronePool = new Map<string, DroneSprite>();
@@ -154,16 +205,29 @@ export class Battlefield {
   private curr: TimedFrame | null = null;
   private inferredPeriodMs = 500;
 
-  // View transform: world meters -> screen px. Origin at asset_pos.
+  // View transform: world meters -> screen px. Origin at asset_pos (view centre).
   private scale = 1;
   private viewW = 1;
   private viewH = 1;
   private worldExtent: number;
+  private depthSquash: number;
+  private cx = 0;
+  private cy = 0;
 
-  // Leak flash: timestamp of the most recent leak observed.
+  // Leak flash + camera shake timestamps.
   private lastLeakMs = -Infinity;
   private lastLeakCount = 0;
 
+  // Kill detection + effects.
+  private lastKills = 0;
+  private readonly lastDronePos = new Map<string, { x: number; y: number; value: number }>();
+  private readonly killQueue: KillEvent[] = [];
+  private readonly particles: Particle[] = [];
+  private readonly fxFree: Graphics[] = [];
+  private readonly shockRings: { gfx: Graphics; x: number; y: number; t: number; color: number }[] = [];
+  private readonly shockFree: Graphics[] = [];
+
+  private lastRenderMs = 0;
   private ready = false;
   private destroyed = false;
   private resizeObserver: ResizeObserver | null = null;
@@ -173,10 +237,13 @@ export class Battlefield {
     this.parent = options.parent;
     this.theme = { ...DEFAULT_THEME, ...(options.theme ?? {}) };
     this.worldExtent = options.worldExtent ?? 5000;
+    this.depthSquash = clamp01(options.depthSquash ?? 0.62) || 0.62;
     this.opts = {
       worldExtent: this.worldExtent,
       marginFrac: options.marginFrac ?? 0.06,
       prewarmDrones: options.prewarmDrones ?? 0,
+      depthSquash: this.depthSquash,
+      staticCamera: options.staticCamera ?? false,
       framePeriodS: options.framePeriodS,
     };
     if (options.framePeriodS && options.framePeriodS > 0) {
@@ -192,24 +259,30 @@ export class Battlefield {
     const { clientWidth, clientHeight } = this.parent;
     this.viewW = Math.max(1, clientWidth || 800);
     this.viewH = Math.max(1, clientHeight || 600);
+    const dpr = globalThis.devicePixelRatio || 1;
     await this.app.init({
       background: this.theme.background,
       width: this.viewW,
       height: this.viewH,
       antialias: true,
-      resolution: globalThis.devicePixelRatio || 1,
+      resolution: Math.min(dpr, MAX_RESOLUTION),
       autoDensity: true,
       preference: "webgl",
     });
     this.parent.appendChild(this.app.canvas);
 
-    // Layer order back -> front.
-    this.world.addChild(this.gridLayer);
+    // Layer order back -> front, all under the camera-transformed `world`.
+    this.assetLayer.addChild(this.assetGlow);
     this.assetLayer.addChild(this.leakFlashGfx);
-    this.world.addChild(this.beamLayer);
+    this.droneLayer.sortableChildren = true; // depth sort flying drones by ground Y
+    this.turretLayer.sortableChildren = true;
+    this.world.addChild(this.gridLayer);
     this.world.addChild(this.assetLayer);
+    this.world.addChild(this.shadowLayer);
+    this.world.addChild(this.beamLayer);
     this.world.addChild(this.turretLayer);
     this.world.addChild(this.droneLayer);
+    this.world.addChild(this.fxLayer);
     this.app.stage.addChild(this.world);
 
     this.drawAsset();
@@ -250,6 +323,12 @@ export class Battlefield {
     }
     this.lastLeakCount = frame.leaks;
 
+    // Kill detection: a drone that was live last frame and is gone this frame,
+    // while the cumulative kill counter rose, was destroyed -> queue a burst at
+    // its last-known position. (Leaked drones also disappear, but those are
+    // accounted by the leak counter, not kills, so they don't get a burst.)
+    this.detectKills(frame);
+
     // Grow the visible world extent if any entity sits outside the current fit.
     this.maybeGrowExtent(frame);
   }
@@ -277,26 +356,37 @@ export class Battlefield {
     this.dronePool.clear();
     this.turretPool.clear();
     this.droneFree.length = 0;
+    this.particles.length = 0;
+    this.fxFree.length = 0;
+    this.shockRings.length = 0;
+    this.shockFree.length = 0;
   }
 
   // ----------------------------------------------------------------------- //
-  // Coordinate transform                                                     //
+  // Coordinate transform (2.5D ground projection)                            //
   // ----------------------------------------------------------------------- //
 
-  /** World (meters, origin = asset) -> screen px (origin = canvas center). */
-  private worldToScreenX(x: number): number {
-    return this.viewW / 2 + x * this.scale;
+  /** World x (meters) -> screen px on the ground plane. */
+  private groundX(x: number): number {
+    return this.cx + x * this.scale;
   }
-  private worldToScreenY(y: number): number {
-    // Flip Y: world +y is "up", screen +y is down.
-    return this.viewH / 2 - y * this.scale;
+  /** World y (meters) -> screen px on the ground plane (depth-squashed). World
+   *  +y is "away/north"; on the tilted plane it both rises on screen and
+   *  compresses, which is what reads as depth. */
+  private groundY(y: number): number {
+    return this.cy - y * this.scale * this.depthSquash;
   }
 
   private recomputeView(): void {
+    this.cx = this.viewW / 2;
+    this.cy = this.viewH / 2;
     const margin = Math.min(this.viewW, this.viewH) * this.opts.marginFrac;
     const usable = Math.min(this.viewW, this.viewH) - 2 * margin;
     // Fit a full diameter (2 * extent) into the usable square.
     this.scale = usable > 0 ? usable / (2 * this.worldExtent) : 1;
+    // Camera transforms rotate/scale/shake the scene about the view centre.
+    this.world.pivot.set(this.cx, this.cy);
+    this.world.position.set(this.cx, this.cy);
   }
 
   private maybeGrowExtent(frame: FrameMessage): void {
@@ -344,46 +434,56 @@ export class Battlefield {
     }
     const g = this.assetGfx;
     g.clear();
-    // Diamond emplacement for the protected asset.
-    g.moveTo(0, -ASSET_R)
-      .lineTo(ASSET_R, 0)
-      .lineTo(0, ASSET_R)
-      .lineTo(-ASSET_R, 0)
+    // Squashed ground footprint (reads as sitting on the tilted plane).
+    g.ellipse(0, 0, ASSET_R * 1.5, ASSET_R * 1.5 * this.depthSquash).fill({
+      color: this.theme.asset,
+      alpha: 0.08,
+    });
+    // Diamond emplacement for the protected asset, lifted slightly off the plane.
+    const lift = ASSET_R * 0.5;
+    g.moveTo(0, -ASSET_R - lift)
+      .lineTo(ASSET_R, -lift)
+      .lineTo(0, ASSET_R - lift)
+      .lineTo(-ASSET_R, -lift)
       .closePath()
-      .fill({ color: this.theme.asset, alpha: 0.18 })
+      .fill({ color: this.theme.asset, alpha: 0.2 })
       .stroke({ color: this.theme.asset, width: 2 });
-    g.circle(0, 0, 3).fill({ color: this.theme.asset });
+    g.circle(0, -lift, 3).fill({ color: this.theme.asset });
     this.positionAsset();
   }
 
   private positionAsset(): void {
-    const cx = this.worldToScreenX(0);
-    const cy = this.worldToScreenY(0);
+    const cx = this.groundX(0);
+    const cy = this.groundY(0);
     if (this.assetGfx) this.assetGfx.position.set(cx, cy);
+    this.assetGlow.position.set(cx, cy);
     this.leakFlashGfx.position.set(cx, cy);
   }
 
   private drawGrid(): void {
     const g = this.gridLayer;
     g.clear();
-    // Concentric range rings every quarter of the world extent, plus crosshair.
+    const cx = this.groundX(0);
+    const cy = this.groundY(0);
+    // Concentric range rings as depth-squashed ellipses every quarter extent.
     const rings = 4;
     for (let i = 1; i <= rings; i++) {
       const rWorld = (this.worldExtent * i) / rings;
       const rPx = rWorld * this.scale;
-      g.circle(this.worldToScreenX(0), this.worldToScreenY(0), rPx).stroke({
+      g.ellipse(cx, cy, rPx, rPx * this.depthSquash).stroke({
         color: this.theme.grid,
         width: 1,
         alpha: 0.8,
       });
     }
-    const cx = this.worldToScreenX(0);
-    const cy = this.worldToScreenY(0);
-    const span = this.worldExtent * this.scale;
-    g.moveTo(cx - span, cy)
-      .lineTo(cx + span, cy)
-      .moveTo(cx, cy - span)
-      .lineTo(cx, cy + span)
+    // Crosshair along the projected world axes (the +x axis is horizontal; the
+    // +y/depth axis is vertical but compressed by the squash).
+    const spanX = this.worldExtent * this.scale;
+    const spanY = spanX * this.depthSquash;
+    g.moveTo(cx - spanX, cy)
+      .lineTo(cx + spanX, cy)
+      .moveTo(cx, cy - spanY)
+      .lineTo(cx, cy + spanY)
       .stroke({ color: this.theme.grid, width: 1, alpha: 0.5 });
   }
 
@@ -392,8 +492,19 @@ export class Battlefield {
   // ----------------------------------------------------------------------- //
 
   private renderInterpolated(): void {
-    if (!this.curr) return;
     const now = this.nowMs();
+    const dt = this.lastRenderMs ? Math.min(0.1, (now - this.lastRenderMs) / 1000) : 0;
+    this.lastRenderMs = now;
+
+    this.updateCamera(now);
+
+    if (!this.curr) {
+      // Still animate the asset glow + any lingering FX even before telemetry.
+      this.renderAssetGlow(now);
+      this.updateParticles(dt);
+      this.updateShockRings(dt);
+      return;
+    }
     // Interpolation factor in [0,1]: how far we are between prev and curr,
     // measured against the (inferred or configured) frame period.
     let alpha = 1;
@@ -405,13 +516,52 @@ export class Battlefield {
       alpha = alpha < 0 ? 0 : alpha > 1 ? 1 : alpha;
     }
 
-    this.renderDrones(alpha);
-    this.renderTurrets(alpha);
+    this.renderAssetGlow(now);
+    this.renderTurrets(alpha, now);
+    this.renderDrones(alpha, now);
     this.renderBeams(alpha);
+    this.spawnQueuedKills();
+    this.updateParticles(dt);
+    this.updateShockRings(dt);
     this.renderLeakFlash(now);
   }
 
-  private renderDrones(alpha: number): void {
+  /** Slow idle drift + breath, plus a decaying kick on leaks (screen shake). */
+  private updateCamera(now: number): void {
+    let shx = 0;
+    let shy = 0;
+    const sinceLeak = now - this.lastLeakMs;
+    if (sinceLeak >= 0 && sinceLeak < SHAKE_MS) {
+      const k = 1 - sinceLeak / SHAKE_MS;
+      const amp = k * 7;
+      shx = Math.sin(sinceLeak * 0.09) * amp;
+      shy = Math.cos(sinceLeak * 0.13) * amp;
+    }
+    if (this.opts.staticCamera) {
+      this.world.rotation = 0;
+      this.world.scale.set(1);
+    } else {
+      const t = now / 1000;
+      this.world.rotation = Math.sin(t * 0.07) * 0.012; // ~0.7deg sway
+      const breath = 1 + Math.sin(t * 0.05) * 0.012;
+      this.world.scale.set(breath);
+    }
+    this.world.position.set(this.cx + shx, this.cy + shy);
+  }
+
+  /** Pulsing emerald ground glow at the asset — a quiet "defended" heartbeat. */
+  private renderAssetGlow(now: number): void {
+    const g = this.assetGlow;
+    g.clear();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 700);
+    const r = ASSET_R * (2.4 + pulse * 0.8);
+    g.ellipse(0, 0, r, r * this.depthSquash).fill({
+      color: this.theme.asset,
+      alpha: 0.05 + pulse * 0.05,
+    });
+  }
+
+  private renderDrones(alpha: number, now: number): void {
     const curr = this.curr!.frame;
     const prevById = this.prevDroneIndex();
     const seen = new Set<string>();
@@ -436,8 +586,22 @@ export class Battlefield {
         wx = d.x + d.v[0] * dt;
         wy = d.y + d.v[1] * dt;
       }
-      sprite.root.position.set(this.worldToScreenX(wx), this.worldToScreenY(wy));
+
+      const gx = this.groundX(wx);
+      const gy = this.groundY(wy);
+      const bob = Math.sin(now / 600 + sprite.phase) * DRONE_BOB;
+      const flyY = gy - DRONE_ALT - bob;
+
+      // Depth sort: things lower on screen (nearer the camera) draw on top.
+      sprite.root.zIndex = gy;
+      sprite.root.position.set(gx, flyY);
       sprite.root.visible = true;
+
+      // Ground shadow + tether are children of root, so place them relative to
+      // the flying body (shadow sits back down at the ground, +alt+bob below).
+      const drop = DRONE_ALT + bob;
+      this.updateDroneShadow(sprite, drop);
+      this.updateDroneTether(sprite, drop);
 
       this.updateDroneMarker(sprite, d);
       this.updateDroneHeading(sprite, d);
@@ -454,26 +618,60 @@ export class Battlefield {
     }
   }
 
+  private updateDroneShadow(sprite: DroneSprite, drop: number): void {
+    // Shadow shrinks/dims a touch with altitude for a subtle depth cue. Cheap
+    // enough to redraw each frame (a single ellipse) since `drop` varies.
+    const g = sprite.shadow;
+    const k = clamp01(1 - (drop - DRONE_ALT + DRONE_BOB) / (DRONE_ALT * 3));
+    g.clear();
+    g.ellipse(0, drop, DRONE_MARKER_R * 1.6, DRONE_MARKER_R * 1.6 * this.depthSquash).fill({
+      color: 0x000000,
+      alpha: 0.28 * (0.6 + 0.4 * k),
+    });
+  }
+
+  private updateDroneTether(sprite: DroneSprite, drop: number): void {
+    const g = sprite.tether;
+    g.clear();
+    g.moveTo(0, 0)
+      .lineTo(0, drop)
+      .stroke({ color: 0x9fb8b0, width: 1, alpha: 0.18 });
+  }
+
   private updateDroneMarker(sprite: DroneSprite, d: DroneFrame): void {
     const tint = this.droneTint(d);
     if (sprite.drawnTint === tint && sprite.drawnState === d.state) return;
     sprite.drawnTint = tint;
     sprite.drawnState = d.state;
+    // Soft glow halo behind the body (drawn once per state/tint change).
+    const gl = sprite.glow;
+    gl.clear();
+    gl.circle(0, 0, DRONE_MARKER_R + 5).fill({ color: tint, alpha: 0.12 });
+    gl.circle(0, 0, DRONE_MARKER_R + 2.5).fill({ color: tint, alpha: 0.18 });
     const g = sprite.marker;
     g.clear();
+    // Diamond body reads as an aircraft silhouette rather than a dot.
+    const r = DRONE_MARKER_R;
+    g.moveTo(0, -r)
+      .lineTo(r * 0.8, 0)
+      .lineTo(0, r)
+      .lineTo(-r * 0.8, 0)
+      .closePath()
+      .fill({ color: tint })
+      .stroke({ color: 0xffffff, width: 0.75, alpha: 0.4 });
     // Engaged drones get a brighter core ring to read as "under fire".
-    g.circle(0, 0, DRONE_MARKER_R).fill({ color: tint });
     if (d.state === "engaged") {
       g.circle(0, 0, DRONE_MARKER_R + 2).stroke({
         color: this.theme.droneEngaged,
         width: 1.5,
-        alpha: 0.9,
+        alpha: 0.95,
       });
     }
   }
 
   private updateDroneHeading(sprite: DroneSprite, d: DroneFrame): void {
-    // Heading vector reflects instantaneous velocity direction; thin line.
+    // Heading vector reflects instantaneous velocity direction; thin line. The
+    // y component is depth-squashed so it lies in the ground plane visually.
     const g = sprite.heading;
     const [vx, vy] = d.v;
     const speed = Math.hypot(vx, vy);
@@ -481,13 +679,12 @@ export class Battlefield {
       g.clear();
       return;
     }
-    // Direction in screen space (flip y). Scale length by a soft cap so fast and
-    // slow drones both read clearly.
     const ux = vx / speed;
-    const uy = -vy / speed;
+    const uy = -(vy / speed) * this.depthSquash;
+    const n = Math.hypot(ux, uy) || 1;
     g.clear();
     g.moveTo(0, 0)
-      .lineTo(ux * HEADING_LEN, uy * HEADING_LEN)
+      .lineTo((ux / n) * HEADING_LEN, (uy / n) * HEADING_LEN)
       .stroke({ color: this.theme.heading, width: 1, alpha: 0.8 });
   }
 
@@ -503,7 +700,7 @@ export class Battlefield {
       g.circle(0, 0, DRONE_RING_R).stroke({
         color: this.theme.killRing,
         width: 2,
-        alpha: 0.7,
+        alpha: 0.6,
       });
       return;
     }
@@ -527,7 +724,7 @@ export class Battlefield {
     return typeof c === "number" ? c : Number(c);
   }
 
-  private renderTurrets(alpha: number): void {
+  private renderTurrets(alpha: number, now: number): void {
     const curr = this.curr!.frame;
     const prevById = this.prevTurretIndex();
     const seen = new Set<string>();
@@ -536,25 +733,38 @@ export class Battlefield {
       seen.add(t.id);
       const sprite = this.acquireTurret(t.id);
       // Turrets are static emplacements; position from current frame.
-      sprite.root.position.set(
-        this.worldToScreenX(t.x),
-        this.worldToScreenY(t.y),
-      );
+      const gx = this.groundX(t.x);
+      const gy = this.groundY(t.y);
+      sprite.root.zIndex = gy;
+      sprite.root.position.set(gx, gy);
       sprite.root.visible = true;
 
-      // Visibly rotate barrel to aim, interpolating the angle so slewing reads
-      // as continuous motion. Aim is a world-frame angle (atan2 over world axes);
-      // convert to screen by negating (y is flipped).
+      // Project the aim direction onto the ground plane and draw the barrel from
+      // the emplacement toward it (so the slew reads in perspective, not flat).
       const p = prevById.get(t.id);
       const aim = p ? lerpAngle(p.aim, t.aim, alpha) : t.aim;
-      sprite.barrel.rotation = -aim;
-
+      this.updateTurretBarrel(sprite, aim, t.state);
       this.updateTurretBody(sprite, t);
+      this.updateTurretMuzzle(sprite, t, aim, now);
     }
 
     for (const [id, sprite] of this.turretPool) {
       if (!seen.has(id)) sprite.root.visible = false;
     }
+  }
+
+  private updateTurretBarrel(sprite: TurretSprite, aim: number, state: string): void {
+    const g = sprite.barrel;
+    g.clear();
+    const dx = Math.cos(aim) * TURRET_BARREL_LEN;
+    const dy = -Math.sin(aim) * TURRET_BARREL_LEN * this.depthSquash;
+    const color =
+      state === "firing" ? this.theme.turretFiring : this.theme.turret;
+    // Barrel rises from the emplacement top (-TURRET_HEIGHT) toward the aim.
+    g.moveTo(0, -TURRET_HEIGHT)
+      .lineTo(dx, -TURRET_HEIGHT + dy)
+      .stroke({ color, width: 3, alpha: 0.95 });
+    g.circle(dx, -TURRET_HEIGHT + dy, 2.5).fill({ color });
   }
 
   private updateTurretBody(sprite: TurretSprite, t: TurretFrame): void {
@@ -566,21 +776,65 @@ export class Battlefield {
         : t.state === "cooldown"
           ? this.theme.turretCooldown
           : this.theme.turret;
+
+    // Ground footprint (squashed ellipse) under the raised body.
+    const sb = sprite.shadowBase;
+    sb.clear();
+    sb.ellipse(0, 0, TURRET_R, TURRET_R * this.depthSquash).fill({
+      color,
+      alpha: 0.16,
+    });
+    sb.ellipse(0, 0, TURRET_R, TURRET_R * this.depthSquash).stroke({
+      color,
+      width: 1.5,
+      alpha: 0.7,
+    });
+
+    // Raised emplacement: a short "drum" between the footprint and its top.
     const g = sprite.base;
     g.clear();
-    g.circle(0, 0, TURRET_R)
-      .fill({ color, alpha: 0.22 })
-      .stroke({ color, width: 2 });
-    // Thermal arc on the base: amber wedge proportional to thermal_frac.
+    const rx = TURRET_R * 0.7;
+    const ry = rx * this.depthSquash;
+    // side walls
+    g.moveTo(-rx, 0)
+      .lineTo(-rx, -TURRET_HEIGHT)
+      .lineTo(rx, -TURRET_HEIGHT)
+      .lineTo(rx, 0)
+      .closePath()
+      .fill({ color, alpha: 0.28 });
+    // top cap
+    g.ellipse(0, -TURRET_HEIGHT, rx, ry)
+      .fill({ color, alpha: 0.5 })
+      .stroke({ color, width: 1.5, alpha: 0.9 });
+    // Thermal arc on the top cap: amber wedge proportional to thermal_frac.
     const tf = t.thermal_frac < 0 ? 0 : t.thermal_frac > 1 ? 1 : t.thermal_frac;
     if (tf > 0.001) {
       const start = -Math.PI / 2;
-      g.arc(0, 0, TURRET_R + 4, start, start + tf * Math.PI * 2).stroke({
+      g.arc(0, -TURRET_HEIGHT, rx + 3, start, start + tf * Math.PI * 2).stroke({
         color: 0xfbbf24,
         width: 2,
         alpha: 0.9,
       });
     }
+  }
+
+  private updateTurretMuzzle(
+    sprite: TurretSprite,
+    t: TurretFrame,
+    aim: number,
+    now: number,
+  ): void {
+    const g = sprite.muzzle;
+    g.clear();
+    if (t.state !== "firing") return;
+    const dx = Math.cos(aim) * TURRET_BARREL_LEN;
+    const dy = -Math.sin(aim) * TURRET_BARREL_LEN * this.depthSquash - TURRET_HEIGHT;
+    const flick = 0.6 + 0.4 * Math.sin(now / 40);
+    g.circle(dx, dy, 4 + flick * 3).fill({
+      color: this.theme.turretFiring,
+      alpha: 0.5 * flick,
+    });
+    g.circle(dx, dy, 2).fill({ color: 0xffffff, alpha: 0.9 });
   }
 
   private renderBeams(alpha: number): void {
@@ -606,30 +860,37 @@ export class Battlefield {
         tx = dp.x + (dstC.x - dp.x) * alpha;
         ty = dp.y + (dstC.y - dp.y) * alpha;
       }
-      const x0 = this.worldToScreenX(src.x);
-      const y0 = this.worldToScreenY(src.y);
-      const x1 = this.worldToScreenX(tx);
-      const y1 = this.worldToScreenY(ty);
+      // Muzzle (elevated) -> drone body (elevated above its ground point).
+      const x0 = this.groundX(src.x);
+      const y0 = this.groundY(src.y) - TURRET_HEIGHT;
+      const x1 = this.groundX(tx);
+      const y1 = this.groundY(ty) - DRONE_ALT;
       // Intensity by delivered power: width and alpha both scale with power_frac.
       const pf = b.power_frac < 0 ? 0 : b.power_frac > 1 ? 1 : b.power_frac;
       const width = 1.5 + pf * 4.5;
       const alphaLine = 0.35 + pf * 0.55;
-      // Outer glow then bright core.
+      // Wide outer bloom -> mid -> bright white-hot core.
       g.moveTo(x0, y0).lineTo(x1, y1).stroke({
         color: this.theme.beam,
-        width: width + 4,
-        alpha: alphaLine * 0.3,
+        width: width + 8,
+        alpha: alphaLine * 0.16,
       });
       g.moveTo(x0, y0).lineTo(x1, y1).stroke({
         color: this.theme.beam,
-        width,
+        width: width + 3,
+        alpha: alphaLine * 0.4,
+      });
+      g.moveTo(x0, y0).lineTo(x1, y1).stroke({
+        color: 0xffffff,
+        width: Math.max(1, width * 0.5),
         alpha: alphaLine,
       });
       // Impact glow at the target.
-      g.circle(x1, y1, 3 + pf * 4).fill({
+      g.circle(x1, y1, 4 + pf * 6).fill({
         color: this.theme.beam,
-        alpha: alphaLine,
+        alpha: alphaLine * 0.5,
       });
+      g.circle(x1, y1, 2 + pf * 2).fill({ color: 0xffffff, alpha: alphaLine });
     }
   }
 
@@ -643,21 +904,149 @@ export class Battlefield {
       }
       return;
     }
-    // Expanding, fading red ring at the asset.
+    // Expanding, fading red ring at the asset (squashed to the ground plane).
     const k = since / LEAK_FLASH_MS; // 0 -> 1
     const r = ASSET_R + k * ASSET_R * 3;
     const a = (1 - k) * 0.8;
     g.visible = true;
     g.clear();
-    g.circle(0, 0, r).stroke({
+    g.ellipse(0, 0, r, r * this.depthSquash).stroke({
       color: this.theme.leakFlash,
       width: 3,
       alpha: a,
     });
-    g.circle(0, 0, ASSET_R).fill({
+    g.ellipse(0, 0, ASSET_R, ASSET_R * this.depthSquash).fill({
       color: this.theme.leakFlash,
       alpha: a * 0.35,
     });
+  }
+
+  // ----------------------------------------------------------------------- //
+  // Kill effects: particle bursts + shock rings                              //
+  // ----------------------------------------------------------------------- //
+
+  /** Diff this frame against the last to find drones that were destroyed. */
+  private detectKills(frame: FrameMessage): void {
+    const present = new Set<string>();
+    for (const d of frame.drones) present.add(d.id);
+
+    const deltaKills = Math.max(0, frame.kills - this.lastKills);
+    if (deltaKills > 0 && this.lastDronePos.size > 0) {
+      let budget = deltaKills;
+      for (const [id, p] of this.lastDronePos) {
+        if (budget <= 0) break;
+        if (!present.has(id)) {
+          this.killQueue.push({ x: p.x, y: p.y, color: this.colorForValue(p.value) });
+          budget--;
+        }
+      }
+    }
+    this.lastKills = frame.kills;
+
+    // Refresh last-known positions for the next diff.
+    this.lastDronePos.clear();
+    for (const d of frame.drones) {
+      this.lastDronePos.set(d.id, { x: d.x, y: d.y, value: d.value });
+    }
+  }
+
+  private colorForValue(value: number): number {
+    for (const band of this.theme.droneValueBands) {
+      if (value <= band.maxValue) {
+        return typeof band.color === "number" ? band.color : Number(band.color);
+      }
+    }
+    const c = this.theme.droneDefault;
+    return typeof c === "number" ? c : Number(c);
+  }
+
+  /** Convert any queued kill events into live particles + a shock ring. */
+  private spawnQueuedKills(): void {
+    if (this.killQueue.length === 0) return;
+    for (const k of this.killQueue) {
+      const sx = this.groundX(k.x);
+      const sy = this.groundY(k.y) - DRONE_ALT;
+      this.spawnShockRing(sx, sy, k.color);
+      for (let i = 0; i < PARTICLES_PER_KILL; i++) {
+        // Deterministic-ish spread (no RNG needed): even fan + speed variation.
+        const ang = (i / PARTICLES_PER_KILL) * Math.PI * 2 + i * 0.7;
+        const spd = 60 + (i % 5) * 26;
+        this.spawnParticle(sx, sy, Math.cos(ang) * spd, -Math.sin(ang) * spd * 0.8, k.color);
+      }
+    }
+    this.killQueue.length = 0;
+  }
+
+  private spawnParticle(x: number, y: number, vx: number, vy: number, color: number): void {
+    const gfx = this.fxFree.pop() ?? this.newFxGraphics();
+    gfx.visible = true;
+    this.particles.push({
+      gfx,
+      x,
+      y,
+      vx,
+      vy,
+      life: 0.55,
+      maxLife: 0.55,
+      color,
+      size: 1.6 + (vx % 2 === 0 ? 1.2 : 0),
+    });
+  }
+
+  private newFxGraphics(): Graphics {
+    const g = new Graphics();
+    this.fxLayer.addChild(g);
+    return g;
+  }
+
+  private updateParticles(dt: number): void {
+    if (this.particles.length === 0) return;
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        p.gfx.clear();
+        p.gfx.visible = false;
+        this.fxFree.push(p.gfx);
+        this.particles.splice(i, 1);
+        continue;
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 40 * dt; // slight settle so debris arcs downward
+      const k = p.life / p.maxLife;
+      const g = p.gfx;
+      g.clear();
+      g.circle(p.x, p.y, p.size * (0.4 + k)).fill({ color: p.color, alpha: k });
+      g.circle(p.x, p.y, p.size * 0.5 * (0.4 + k)).fill({ color: 0xffffff, alpha: k * 0.8 });
+    }
+  }
+
+  private spawnShockRing(x: number, y: number, color: number): void {
+    const gfx = this.shockFree.pop() ?? this.newFxGraphics();
+    gfx.visible = true;
+    this.shockRings.push({ gfx, x, y, t: 0, color });
+  }
+
+  private updateShockRings(dt: number): void {
+    if (this.shockRings.length === 0) return;
+    const DUR = 0.4;
+    for (let i = this.shockRings.length - 1; i >= 0; i--) {
+      const s = this.shockRings[i];
+      s.t += dt;
+      if (s.t >= DUR) {
+        s.gfx.clear();
+        s.gfx.visible = false;
+        this.shockFree.push(s.gfx);
+        this.shockRings.splice(i, 1);
+        continue;
+      }
+      const k = s.t / DUR; // 0 -> 1
+      const r = 6 + k * 34;
+      const g = s.gfx;
+      g.clear();
+      g.circle(s.x, s.y, r).stroke({ color: s.color, width: 2.5 * (1 - k), alpha: 1 - k });
+    }
   }
 
   // ----------------------------------------------------------------------- //
@@ -678,31 +1067,44 @@ export class Battlefield {
 
   private createDroneSprite(): DroneSprite {
     const root = new Container();
+    const shadow = new Graphics();
+    const tether = new Graphics();
+    const glow = new Graphics();
     const ring = new Graphics();
     const heading = new Graphics();
     const marker = new Graphics();
-    // Draw order within a drone: ring (back) -> heading -> marker (front).
-    root.addChild(ring, heading, marker);
+    // Draw order within a drone: shadow + tether (down on the ground) -> glow ->
+    // ring -> heading -> marker (front).
+    root.addChild(shadow, tether, glow, ring, heading, marker);
     root.visible = false;
     this.droneLayer.addChild(root);
-    return { root, marker, ring, heading, drawnHp: -1, drawnTint: -1, drawnState: "" };
+    return {
+      root,
+      shadow,
+      tether,
+      glow,
+      ring,
+      heading,
+      marker,
+      drawnHp: -1,
+      drawnTint: -1,
+      drawnState: "",
+      phase: this.dronePool.size * 1.7 + this.droneFree.length * 0.9,
+    };
   }
 
   private acquireTurret(id: string): TurretSprite {
     let s = this.turretPool.get(id);
     if (s) return s;
     const root = new Container();
+    const shadowBase = new Graphics();
     const base = new Graphics();
     const barrel = new Graphics();
-    // Barrel as a fixed bar pointing +x (world 0 rad); rotated each frame.
-    barrel
-      .rect(0, -2, TURRET_BARREL_LEN, 4)
-      .fill({ color: this.theme.turret })
-      .circle(TURRET_BARREL_LEN, 0, 3)
-      .fill({ color: this.theme.turretFiring });
-    root.addChild(base, barrel);
+    const muzzle = new Graphics();
+    // shadowBase (ground) -> base (raised body) -> barrel -> muzzle flash.
+    root.addChild(shadowBase, base, barrel, muzzle);
     this.turretLayer.addChild(root);
-    s = { root, base, barrel, drawnState: "" };
+    s = { root, shadowBase, base, barrel, muzzle, drawnState: "" };
     this.turretPool.set(id, s);
     return s;
   }
@@ -739,6 +1141,10 @@ export class Battlefield {
 
 const EMPTY_DRONE_INDEX: Map<string, DroneFrame> = new Map();
 const EMPTY_TURRET_INDEX: Map<string, TurretFrame> = new Map();
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
 
 /** Shortest-arc angular interpolation (radians), so a turret slews the short way. */
 export function lerpAngle(a: number, b: number, t: number): number {

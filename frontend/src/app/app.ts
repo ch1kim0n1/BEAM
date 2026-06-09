@@ -15,8 +15,8 @@
 // composes the render/, panels/, charts/, and net/ modules over types.ts.
 
 import { BeamClient } from "../net";
-import { ControlPanel, type ControlSink } from "../panels";
-import type { ControlMessage } from "../types";
+import { ControlPanel, RunReport, type ControlSink } from "../panels";
+import type { ControlMessage, RunSummaryResponse } from "../types";
 import { RunController, type RunStatus } from "./runController";
 
 /** The preset that the one-click "wow" button loads (pdd.md 4 / 15 Phase 3). */
@@ -50,6 +50,11 @@ export function pickRacePair(names: readonly string[]): [string, string] {
   return [a, b];
 }
 
+/** Promise that resolves after `ms` (used to wait for run-summary finalization). */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export interface BeamAppOptions {
   root: HTMLElement;
   client?: BeamClient;
@@ -73,6 +78,7 @@ export class BeamApp {
   private elStatus!: HTMLElement;
   private elModeToggle!: HTMLButtonElement;
   private elWowBtn!: HTMLButtonElement;
+  private elReportBtn!: HTMLButtonElement;
 
   // Stream A is always present; stream B exists only in race mode.
   private ctrlA: RunController | null = null;
@@ -85,10 +91,19 @@ export class BeamApp {
   // and choose the race pair. Falls back to scaffold defaults when unreachable.
   private solverNames: string[] = [];
   private weatherNames: string[] = [];
+  private referenceSolver = "cp_sat";
 
   // The scenario currently being run (shared across both race streams).
   private scenarioId: string | null = null;
   private lastSeed: number | undefined;
+  private displaySeed: number | undefined;
+  private scenarioLabel = "custom scenario";
+  private lastActiveSolver = "";
+
+  // After-action report (post-run summary overlay) + de-dup guard so it opens
+  // once per finished run, not on every terminal status callback.
+  private report!: RunReport;
+  private reportedRunId: string | null = null;
 
   constructor(opts: BeamAppOptions) {
     this.root = opts.root;
@@ -99,6 +114,11 @@ export class BeamApp {
   /** Build the DOM skeleton, load the catalog, and mount the panel. */
   async init(): Promise<void> {
     this.buildLayout();
+    this.report = new RunReport({
+      root: this.root,
+      document: this.doc,
+      onReplay: () => void this.loadWowPreset(),
+    });
     await this.loadCatalog();
     this.mountPanel();
     this.rebuildStage();
@@ -134,6 +154,14 @@ export class BeamApp {
     this.elModeToggle.textContent = "Solver race: OFF";
     this.elModeToggle.addEventListener("click", () => void this.toggleMode());
     topActions.appendChild(this.elModeToggle);
+
+    this.elReportBtn = this.doc.createElement("button");
+    this.elReportBtn.className = "beam-report-toggle";
+    this.elReportBtn.type = "button";
+    this.elReportBtn.textContent = "▤ Report";
+    this.elReportBtn.disabled = true;
+    this.elReportBtn.addEventListener("click", () => this.report.reopen());
+    topActions.appendChild(this.elReportBtn);
     top.appendChild(topActions);
 
     this.root.appendChild(top);
@@ -186,6 +214,7 @@ export class BeamApp {
       ]);
       this.solverNames = solvers.solvers.map((s) => s.name);
       this.weatherNames = weather.profiles.map((w) => w.name);
+      if (solvers.reference) this.referenceSolver = solvers.reference;
     } catch {
       // Backend not up yet (e.g. static preview); fall back to scaffold names so
       // the UI still renders and the demo button can retry on click.
@@ -320,6 +349,8 @@ export class BeamApp {
       this.setStatus("creating scenario…");
       const created = await this.client.createScenario({ scenario: overrides });
       this.scenarioId = created.scenario_id;
+      this.scenarioLabel = "custom scenario";
+      this.displaySeed = this.lastSeed;
       await this.startRuns();
     } catch (e) {
       this.setStatus(`failed to start: ${String(e)}`);
@@ -334,7 +365,9 @@ export class BeamApp {
       this.setStatus(`loading preset “${WOW_PRESET}”…`);
       const created = await this.client.createScenario({ preset: WOW_PRESET });
       this.scenarioId = created.scenario_id;
+      this.scenarioLabel = WOW_PRESET;
       this.lastSeed = undefined; // preset carries its own seed (1337)
+      this.displaySeed = 1337; // shown in the report; not sent as an override
       await this.startRuns();
       this.setStatus(`running “${WOW_PRESET}” — seed 1337`);
     } catch (e) {
@@ -347,6 +380,10 @@ export class BeamApp {
     if (!this.scenarioId) return;
     const state = this.panel.getState();
     const seed = this.lastSeed;
+    // A fresh run invalidates any prior report-open guard.
+    this.reportedRunId = null;
+    this.lastActiveSolver =
+      this.mode === "single" ? state.activeSolver : this.racePair()[0];
 
     if (this.mode === "single") {
       await this.ctrlA?.start({
@@ -434,7 +471,57 @@ export class BeamApp {
 
   private reflectStatus(s: RunStatus, detail?: string): void {
     if (s === "error") this.setStatus(`stream error: ${detail ?? ""}`);
-    else if (s === "ended") this.setStatus("run complete");
+    else if (s === "ended") {
+      this.setStatus("run complete — opening after-action report");
+      void this.showReport();
+    }
+  }
+
+  // --- after-action report ------------------------------------------------ //
+
+  /** Fetch the run summary and open the after-action report. Idempotent per run:
+   *  the "ended" status can arrive more than once (socket close races), so we
+   *  guard on the run id. The summary.json is written as the run finalizes, so we
+   *  retry briefly if it isn't aggregated yet. */
+  private async showReport(): Promise<void> {
+    const runId = this.ctrlA?.currentRunId;
+    if (!runId || this.reportedRunId === runId) return;
+    this.reportedRunId = runId;
+    try {
+      const response = await this.fetchSummaryWithRetry(runId);
+      const model = this.ctrlA?.scoreboard.model;
+      this.report.show({
+        response,
+        context: {
+          scenarioLabel: this.scenarioLabel,
+          seed: this.displaySeed,
+          activeSolver: this.lastActiveSolver || model?.activeSolver,
+          referenceSolver: this.referenceSolver,
+          protectedValueFrac: model?.protectedValueFrac,
+          simSeconds: model?.simClock,
+          epochs: model?.epoch,
+        },
+      });
+      this.elReportBtn.disabled = false;
+      this.setStatus("run complete — after-action report ready (▤ Report to reopen)");
+    } catch (e) {
+      this.reportedRunId = null; // allow a manual retry
+      this.setStatus(`run complete (report unavailable: ${String(e)})`);
+    }
+  }
+
+  private async fetchSummaryWithRetry(
+    runId: string,
+    attempts = 4,
+  ): Promise<RunSummaryResponse> {
+    let last: RunSummaryResponse | null = null;
+    for (let i = 0; i < attempts; i++) {
+      last = await this.client.runSummary(runId);
+      if (last.summary) return last;
+      await delay(150 * (i + 1));
+    }
+    // Return whatever we have; the overlay renders a "pending" state if needed.
+    return last as RunSummaryResponse;
   }
 
   private setStatus(text: string): void {

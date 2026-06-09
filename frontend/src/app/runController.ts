@@ -143,6 +143,9 @@ export class RunController {
     });
     this.socket = socket;
     socket.connect();
+    // Charts redraw only while a run streams; (re)start the flush loop here and
+    // stop it on any terminal status so an ended run isn't burning a 60fps RAF.
+    this.startChartLoop();
   }
 
   /** Send a control message over this run's socket (no-op if not open). */
@@ -212,14 +215,22 @@ export class RunController {
     if (this.cost && this.views.costCanvas) this.cost.render(this.views.costCanvas);
   }
 
-  /** Begin a render-frame loop that flushes dirty charts. Call once after init. */
+  /** Begin a render-frame loop that flushes dirty charts. Idempotent; a no-op for
+   *  streams without chart canvases (e.g. the secondary race stream). */
   startChartLoop(): void {
     if (this.chartRaf != null) return;
+    if (!this.gap && !this.cost) return;
     const tick = () => {
       this.renderCharts();
       this.chartRaf = requestAnimationFrame(tick);
     };
     this.chartRaf = requestAnimationFrame(tick);
+  }
+
+  /** Stop the chart flush loop (final state stays painted on the canvas). */
+  stopChartLoop(): void {
+    if (this.chartRaf != null) cancelAnimationFrame(this.chartRaf);
+    this.chartRaf = null;
   }
 
   // --- internals ---------------------------------------------------------- //
@@ -240,6 +251,12 @@ export class RunController {
 
   private setStatus(status: RunStatus, detail?: string): void {
     this.status = status;
+    // On any terminal status, flush a final chart frame then stop the RAF so an
+    // idle ended/stopped run does not keep a 60fps loop alive.
+    if (status === "ended" || status === "error" || status === "stopped") {
+      this.renderCharts(true);
+      this.stopChartLoop();
+    }
     this.onStatus?.(status, detail);
   }
 }

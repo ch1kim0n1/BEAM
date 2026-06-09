@@ -15,7 +15,10 @@ vi.mock("pixi.js", () => {
   class FakeGraphics {
     visible = true;
     rotation = 0;
+    zIndex = 0;
     position = { set: vi.fn() };
+    scale = { set: vi.fn(), x: 1, y: 1 };
+    pivot = { set: vi.fn() };
     children: unknown[] = [];
     constructor() {
       graphicsCreated++;
@@ -39,6 +42,9 @@ vi.mock("pixi.js", () => {
     circle() {
       return this;
     }
+    ellipse() {
+      return this;
+    }
     rect() {
       return this;
     }
@@ -54,7 +60,12 @@ vi.mock("pixi.js", () => {
   }
   class FakeContainer {
     visible = true;
+    rotation = 0;
+    zIndex = 0;
+    sortableChildren = false;
     position = { set: vi.fn() };
+    scale = { set: vi.fn(), x: 1, y: 1 };
+    pivot = { set: vi.fn() };
     children: unknown[] = [];
     constructor() {
       containerCreated++;
