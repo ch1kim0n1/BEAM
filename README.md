@@ -6,7 +6,7 @@
 
 A real-time simulation that models a multi-turret laser battery defending an asset against a drone swarm, and solves the targeting decision as a live **Dynamic Weapon-Target Assignment** problem with an exact optimality reference.
 
-![status](https://img.shields.io/badge/status-MVP%20complete-success)
+![status](https://img.shields.io/badge/status-feature%20complete-success)
 ![python](https://img.shields.io/badge/backend-Python%203.11%2B-blue)
 ![typescript](https://img.shields.io/badge/frontend-TypeScript-3178c6)
 ![solver](https://img.shields.io/badge/solver-OR--Tools%20CP--SAT-orange)
@@ -24,11 +24,23 @@ Under the hood, the targeting problem is treated as what it really is in the ope
 
 It is a simulation and analysis tool. No hardware, no real weapon parameters, all physics constants are illustrative and live in config.
 
-## Two things it shows you, live
+## What it shows you
 
 **Solver race with optimality gap.** Greedy baselines, an auction assignment, a metaheuristic, and an exact CP-SAT solver all run on the identical seeded scenario each epoch. You watch each policy's objective, its gap from the proven optimum, and its solve time stream in real time. This is the central tradeoff of the whole field made visible: good-enough-and-fast versus optimal-but-too-slow as the swarm scales.
 
 **Cost-exchange breakeven curve.** A ledger tracks per-shot energy cost, amortized system cost, and maintenance against the cumulative value of drones destroyed. Per shot the laser wins instantly. The multimillion battery only goes net-positive past a volume of intercepts. That crossover is the chart.
+
+**Pareto frontier.** One click runs CP-SAT at 15 cost-weight ratios and plots the efficient frontier between leaked value and operating cost, making the multi-objective tradeoff quantitatively visible.
+
+**Shareable runs.** Any run encodes as a `?run=` URL that auto-loads and starts the identical configuration when opened - preset, seed, solver, all of it.
+
+**Scenario editor.** A slide-out drawer lets you configure swarm count, spawn geometry, behavior, drone class mix, weather, and seed without touching YAML. YAML preview included.
+
+**Adaptive swarm AI.** A genetic algorithm evolves swarm approach parameters (spawn arc, speed, flocking weights) to maximize leaks against any defender policy. `beam evolve` runs it headless; the UI starts it from the control panel and polls generation-by-generation fitness.
+
+**3D battlefield view.** Toggle button swaps the Pixi.js 2D canvas for a Three.js 3D scene - drones at altitude descending toward the asset, turrets slewing with 3D barrel models, beams as 3D lines, orbit camera with mouse control.
+
+**Rust hot loop.** A PyO3 Rust extension (`beam_physics`) replaces the numpy hot path for Beer-Lambert attenuation, dwell-to-kill matrices, and position updates. Transparent numpy fallback when the extension is not compiled.
 
 ## Demo
 
@@ -75,14 +87,25 @@ Open **http://localhost:5173**, pick a preset scenario, and hit Run.
 
 ### 3. Headless (no UI)
 
-Run a scenario to a telemetry log, or sweep parameters to generate the breakeven and gap-vs-scale curves:
+Run a scenario, sweep parameters, or evolve a worst-case swarm:
 
 ```bash
-beam run   --scenario config/scenarios/swarm_24.yaml --solver auction --seed 1337
-beam batch --scenario config/scenarios/swarm_24.yaml --sweep config/sweeps/breakeven.yaml
+beam run    --scenario config/scenarios/swarm_24.yaml --solver auction --seed 1337
+beam batch  --scenario config/scenarios/swarm_24.yaml --sweep config/sweeps/breakeven.yaml
+beam evolve --scenario swarm_24 --solver greedy_urgent --generations 30 --out runs/evolved.yaml
 ```
 
-Artifacts land in `runs/` (telemetry, summary JSON, and CSV series for plotting).
+Artifacts land in `runs/` (telemetry, summary JSON, CSV series, evolved scenario YAML).
+
+### 4. Rust extension (optional, for thousand-drone scale)
+
+```bash
+cd backend/beam_physics
+maturin build --interpreter python
+pip install target/wheels/*.whl
+```
+
+The extension is auto-detected at import time; the engine falls back to numpy if not installed. Requires Rust stable + `pip install maturin`.
 
 ---
 
@@ -125,20 +148,22 @@ All solvers implement one interface and are fully interchangeable. Add a new one
 ## Architecture
 
 ```
-Frontend (TypeScript, Pixi.js)
-  battlefield canvas · control panel · gap & breakeven dashboards · solver-race split
+Frontend (TypeScript, Pixi.js + Three.js)
+  2D battlefield · 3D battlefield (toggle) · scenario editor drawer
+  control panel · gap & breakeven & Pareto dashboards · solver-race split
         ▲ WebSocket (telemetry)   │ REST (control)
         │                         ▼
 Backend (Python)
   FastAPI + WebSocket
   Sim Engine (physics, kinematics, kill resolution, decision loop)
      → Solver Suite (greedy · auction · metaheuristic · CP-SAT)
-     → Cost Ledger
-     → Telemetry / Replay
-  numpy (vectorized physics) · OR-Tools (CP-SAT)
+     → Cost Ledger · Telemetry / Replay
+     → Pareto sweep (POST /api/batch/pareto)
+     → GA swarm evolver (POST /api/evolve)
+  beam_physics (Rust/PyO3) · numpy fallback · OR-Tools (CP-SAT)
 ```
 
-The engine, solvers, and ledger run fully headless for batch sweeps. The frontend is a thin renderer over the telemetry stream; all truth lives server-side, and runs are deterministic under a seed.
+The engine, solvers, and ledger run fully headless for batch sweeps. The frontend is a thin renderer over the telemetry stream; all truth lives server-side, and runs are deterministic under a seed. Share a run as a `?run=` URL - the full configuration is base64-encoded in the link.
 
 ## Project structure
 
@@ -151,14 +176,23 @@ The engine, solvers, and ledger run fully headless for batch sweeps. The fronten
 │   ├── beam/
 │   │   ├── engine/     # kinematics, physics, kill resolution, loop
 │   │   ├── solvers/    # greedy, auction, metaheuristic, cp_sat, base
+│   │   ├── evolve/     # GA swarm evolver (genome, ga)
 │   │   ├── cost/       # ledger
 │   │   ├── api/        # fastapi routes + websocket
 │   │   ├── schemas/    # pydantic models
-│   │   └── batch/      # headless sweeps
+│   │   └── batch/      # headless sweeps + pareto sweep
 │   └── tests/
+├── beam_physics/                     # Rust/PyO3 hot-loop extension
+│   ├── Cargo.toml
+│   └── src/            # lib.rs, physics.rs, kinematics.rs
 ├── frontend/
 │   ├── package.json
-│   └── src/            # render, panels, charts, net, generated types
+│   └── src/
+│       ├── render/     # Pixi.js 2D battlefield + Three.js 3D battlefield
+│       ├── panels/     # controls, scoreboard, scenario editor drawer
+│       ├── charts/     # gap, breakeven, pareto frontier
+│       ├── app/        # BeamApp, RunController, shareLink
+│       └── net/        # WebSocket + REST client
 ├── config/             # scenarios, sweeps, tunables (yaml)
 └── docs/
 ```
@@ -170,13 +204,16 @@ Everything tunable lives in `config/`, never hard-coded: weather profiles, turre
 ## Testing
 
 ```bash
-cd backend && pytest          # physics, reproducibility, solver correctness
-cd frontend && npm test
+cd backend && pytest          # 219 tests: physics, solvers, evolve, pareto, Rust parity
+cd frontend && npm test       # 96 tests: charts, panels, editor, shareLink, Battlefield3D
 ```
 
-- **Physics:** monotonicity checks (kill time rises with range and worse weather; slew rises with angle), thermal cap behavior, energy conservation.
-- **Solver correctness:** brute-force optimum equals CP-SAT on tiny instances; every heuristic objective is `<=` optimum with a non-negative gap.
+- **Physics:** monotonicity (kill time rises with range/weather; slew rises with angle), thermal cap, energy conservation.
+- **Solver correctness:** brute-force optimum equals CP-SAT on tiny instances; every heuristic gap is non-negative.
 - **Reproducibility:** same seed + solver yields a byte-identical telemetry hash (CI gate).
+- **Evolve:** GA fitness increases over generations; evolved genome produces valid scenario overlay.
+- **Pareto:** sweep returns N points; all on or inside the frontier.
+- **Rust parity:** Rust extension output matches numpy to float tolerance; both import paths pass the full suite.
 - **Contracts:** all REST/WebSocket payloads validated both ends.
 
 ## Deployment (Docker)
@@ -204,9 +241,9 @@ faster. Docker is for hosted / CI deployments.
 - [x] Phase 1 - sim core (physics, kinematics, kill resolution, deterministic seeding)
 - [x] Phase 2 - solver suite, optimality gap, cost ledger, streaming, batch sweeps
 - [x] Phase 3 - frontend (battlefield, dashboards, solver-race split, tactical theme)
-- [x] Phase 4 - 3D view, scenario editor, adaptive (learning) swarm AI, shareable run links
-- [x] Multi-objective assignment (fold cost into the objective for a Pareto front)
-- [x] Rust hot loop for thousand-drone scale (PyO3 extension, numpy fallback)
+- [x] Phase 4 - 3D view, scenario editor, adaptive swarm AI, shareable run links
+- [x] Multi-objective Pareto front (CP-SAT weighted-sum sweep, frontier chart)
+- [x] Rust hot loop for thousand-drone scale (PyO3 + numpy fallback)
 
 ## Contributing
 
