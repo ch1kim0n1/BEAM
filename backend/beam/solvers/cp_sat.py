@@ -177,12 +177,17 @@ class CpSatSolver:
     # Solver entry point (pdd.md 9.1)                                     #
     # ------------------------------------------------------------------ #
 
-    def solve(self, state: WorldState, deadline_ms: int) -> Assignment:
+    def solve(self, state: WorldState, deadline_ms: int, *, cost_weight: float = 0.0) -> Assignment:
         """Solve the battery problem exactly (pdd.md 7.3); respect ``deadline_ms``.
 
         Returns an :class:`~beam.schemas.Assignment` (turret_id -> ordered target ids)
         with ``objective_estimate`` = total value of drones killed before their
         deadlines under the chosen schedule. Reads only ``state``; never mutates it.
+
+        Args:
+            cost_weight: when > 0, penalizes dwell time as a proxy for cost in the
+                objective (pdd.md 7.3). A value of 1.0 optimizes purely for minimum
+                cost; 0.0 (default) optimizes purely for value killed.
         """
         # Only live/detected, engageable targets (pdd.md 7.1: T = live + detected).
         drones = [d for d in state.drones if d.state in ("alive", "engaged")]
@@ -329,14 +334,30 @@ class CpSatSolver:
             if servers:
                 model.Add(sum(servers) <= 1)
 
-        # ---- Objective: maximize value killed before deadline (pdd.md 7.3) -----
+        # ---- Objective: maximize value killed - optional cost penalty (pdd.md 7.3) ---
         obj_terms = []
         for (i, j), var in kill.items():
             # Scale value to int for CP-SAT; round to keep determinism and ties.
             obj_terms.append(int(round(value[j])) * var)
-        if not obj_terms:
-            return Assignment(turret_orders={}, objective_estimate=0.0)
-        model.Maximize(sum(obj_terms))
+        if cost_weight > 0.0:
+            lam = min(1.0, max(0.0, 1.0 - cost_weight))
+            max_dwell = max(
+                (dwell[i][j] for i in range(n_t) for j in candidates[i] if candidates[i]),
+                default=1,
+            )
+            max_val = max(value) if value else 1.0
+            weighted_obj = []
+            for (i, j), var in kill.items():
+                v_scaled = int(round(lam * value[j]))
+                c_scaled = int(round((1.0 - lam) * max_val * dwell[i][j] / max(max_dwell, 1)))
+                weighted_obj.append((v_scaled - c_scaled) * var)
+            if not weighted_obj:
+                return Assignment(turret_orders={}, objective_estimate=0.0)
+            model.Maximize(sum(weighted_obj))
+        else:
+            if not obj_terms:
+                return Assignment(turret_orders={}, objective_estimate=0.0)
+            model.Maximize(sum(obj_terms))
 
         # ---- Solve, time-boxed (pdd.md 9.2.6, 16) ------------------------------
         solver = cp_model.CpSolver()
