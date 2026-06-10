@@ -226,16 +226,26 @@ def _is_movable(d: Drone) -> bool:
 def step_direct(drones: list[Drone], asset_pos: Vec2, dt: float) -> None:
     """Advance ``direct`` drones straight toward the asset at their current speed.
 
-    Velocity is re-pointed at the asset each tick (constant speed, straight line);
-    position integrates with explicit Euler. Mutates drones in place.
+    Vectorized with numpy; uses the Rust extension when compiled for the
+    position-update step (Rust speedup at thousand-drone scale).
     """
-    for d in drones:
-        if not _is_movable(d):
-            continue
-        speed = math.hypot(d.vel.x, d.vel.y)
-        direction = vunit(vsub(asset_pos, d.pos))
-        d.vel = Vec2(x=direction.x * speed, y=direction.y * speed)
-        d.pos = Vec2(x=d.pos.x + d.vel.x * dt, y=d.pos.y + d.vel.y * dt)
+    movable = [d for d in drones if _is_movable(d)]
+    if not movable:
+        return
+    pos = np.array([[d.pos.x, d.pos.y] for d in movable], dtype=np.float64)
+    vel = np.array([[d.vel.x, d.vel.y] for d in movable], dtype=np.float64)
+    # Re-aim velocities toward asset
+    to_asset = np.array([asset_pos.x, asset_pos.y], dtype=np.float64) - pos
+    dists = np.hypot(to_asset[:, 0], to_asset[:, 1])
+    dists = np.where(dists > 1e-12, dists, 1.0)
+    unit = to_asset / dists[:, None]
+    speeds = np.hypot(vel[:, 0], vel[:, 1])
+    vel = unit * speeds[:, None]
+    # Rust-accelerated (or numpy fallback) position update
+    new_pos = step_direct_batch_fast(pos, vel, dt)
+    for k, d in enumerate(movable):
+        d.vel = Vec2(x=float(vel[k, 0]), y=float(vel[k, 1]))
+        d.pos = Vec2(x=float(new_pos[k, 0]), y=float(new_pos[k, 1]))
 
 
 def step_flocking(
@@ -469,3 +479,26 @@ def slew_time(turret: Turret, target_aim: float) -> float:
         s_i(a, b) = angular_distance(aim_a, aim_b) / slew_rate_i + settle_time_i
     """
     return angular_distance(turret.aim, target_aim) / turret.slew_rate + turret.settle_time
+
+
+# --------------------------------------------------------------------------- #
+# Rust-accelerated batch helpers                                              #
+# --------------------------------------------------------------------------- #
+
+try:
+    import beam_physics as _rust_kin  # type: ignore[import]
+    _RUST_KIN = True
+except ImportError:
+    _rust_kin = None  # type: ignore[assignment]
+    _RUST_KIN = False
+
+
+def step_direct_batch_fast(pos: np.ndarray, vel: np.ndarray, dt: float) -> np.ndarray:
+    """Vectorized direct step (pos += vel * dt). Uses Rust when compiled."""
+    if _RUST_KIN and _rust_kin is not None:
+        return _rust_kin.step_direct_batch(
+            np.asarray(pos, dtype=np.float64),
+            np.asarray(vel, dtype=np.float64),
+            float(dt),
+        )
+    return np.asarray(pos, dtype=np.float64) + np.asarray(vel, dtype=np.float64) * dt

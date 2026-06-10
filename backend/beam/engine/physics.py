@@ -32,6 +32,15 @@ import numpy as np
 
 from beam.util import angular_distance
 
+# Try to use the compiled Rust extension for hot-path functions.
+# Falls back to pure numpy when the extension is not built (e.g. CI without Rust).
+try:
+    import beam_physics as _rust  # type: ignore[import]
+    _RUST = True
+except ImportError:
+    _rust = None  # type: ignore[assignment]
+    _RUST = False
+
 # A value that is either a python float or a numpy array (for vectorized callers).
 FloatOrArray = Union[float, np.ndarray]
 
@@ -286,3 +295,49 @@ def thermal_update(
         new_forced = new_heat >= h_max
 
     return ThermalResult(heat=new_heat, forced_cooldown=new_forced)
+
+
+# --------------------------------------------------------------------------- #
+# Batch wrappers - use Rust when compiled, numpy fallback otherwise            #
+# --------------------------------------------------------------------------- #
+
+
+def delivered_power_batch(
+    power_emitted: float,
+    alpha: float,
+    ranges: np.ndarray,
+) -> np.ndarray:
+    """Vectorized Beer-Lambert over a range array. Uses Rust extension when available."""
+    r = np.asarray(ranges, dtype=np.float64)
+    if _RUST and _rust is not None:
+        return _rust.delivered_power_batch(float(power_emitted), float(alpha), r)
+    return delivered_power(power_emitted, alpha, r)
+
+
+def dwell_matrix_batch(
+    powers: np.ndarray,
+    ranges: np.ndarray,
+    hardness: np.ndarray,
+    alpha: float,
+    track_base: float,
+    track_falloff: float,
+) -> np.ndarray:
+    """Full n_turrets x n_drones dwell-to-kill matrix. Uses Rust when available."""
+    if _RUST and _rust is not None:
+        return _rust.dwell_matrix(
+            np.asarray(powers, dtype=np.float64),
+            np.asarray(ranges, dtype=np.float64),
+            np.asarray(hardness, dtype=np.float64),
+            float(alpha),
+            float(track_base),
+            float(track_falloff),
+        )
+    # Numpy fallback
+    n_t, n_d = ranges.shape
+    out = np.full((n_t, n_d), np.inf)
+    for i in range(n_t):
+        p_del = delivered_power(powers[i], alpha, ranges[i])
+        eta = track_efficiency(1.0, ranges[i], base=track_base, range_falloff=track_falloff)
+        dep = deposition_rate(p_del, eta)
+        out[i] = dwell_to_kill(hardness, dep)
+    return out
