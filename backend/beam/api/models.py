@@ -207,6 +207,43 @@ class WeatherListResponse(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
+# --------------------------------------------------------------------------- #
+# Evolve                                                                       #
+# --------------------------------------------------------------------------- #
+
+
+class EvolveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    preset: str = "swarm_24"
+    defender_solver: str = "greedy_urgent"
+    generations: int = Field(default=30, ge=1, le=200)
+    population_size: int = Field(default=40, ge=4, le=200)
+    seed: int = 42
+    swarm_count: int = Field(default=24, ge=1, le=512)
+    behavior: str = "flocking"
+
+
+class EvolveStartResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evolve_id: str
+    status: str
+
+
+class EvolveProgressResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evolve_id: str
+    status: str
+    generation: int
+    generations: int
+    best_fitness: float
+    mean_fitness: float
+    best_overlay: Optional[dict[str, Any]] = None
+    error: Optional[str] = None
+
+
 class ParetoStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

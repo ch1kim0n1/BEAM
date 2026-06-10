@@ -32,6 +32,9 @@ from beam.api.models import (
     BatchResultsResponse,
     BatchStartRequest,
     BatchStartResponse,
+    EvolveProgressResponse,
+    EvolveRequest,
+    EvolveStartResponse,
     ParetoPointResponse,
     ParetoResultsResponse,
     ParetoStartRequest,
@@ -51,6 +54,7 @@ from beam.api.models import (
 from beam.api.runtime import (
     DEFAULT_REFERENCE_SOLVER,
     BatchJob,
+    EvolveJob,
     ParetoJob,
     Registry,
     RunController,
@@ -397,5 +401,75 @@ def pareto_results(pareto_id: str, request: Request) -> ParetoResultsResponse:
             )
             for p in job.points
         ],
+        error=job.error,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Evolve                                                                       #
+# --------------------------------------------------------------------------- #
+
+
+@router.post("/evolve", response_model=EvolveStartResponse)
+async def start_evolve(req: EvolveRequest, request: Request) -> EvolveStartResponse:
+    """Start a GA swarm evolution job (design spec section 4)."""
+    reg = _registry(request)
+
+    evolve_id = reg.new_evolve_id()
+    job = EvolveJob(evolve_id=evolve_id, status="running", generations=req.generations)
+    reg.evolves[evolve_id] = job
+
+    async def _drive() -> None:
+        try:
+            from beam.evolve.ga import GAConfig, run_ga  # lazy import
+            from beam.evolve.genome import genome_to_overlay
+
+            def _on_gen(gen: int, best: float, mean: float) -> None:
+                job.generation = gen
+                job.best_fitness = best
+                job.mean_fitness = mean
+
+            cfg = GAConfig(
+                base_scenario=req.preset,
+                defender_solver=req.defender_solver,
+                seed=req.seed,
+                population_size=req.population_size,
+                generations=req.generations,
+                base_swarm_count=req.swarm_count,
+                base_behavior=req.behavior,
+            )
+            result = await asyncio.to_thread(run_ga, cfg, on_generation=_on_gen)
+            job.status = "done"
+            if result.best_genome is not None:
+                job.best_overlay = genome_to_overlay(
+                    result.best_genome,
+                    base_swarm_count=req.swarm_count,
+                    base_behavior=req.behavior,
+                )
+                job.best_fitness = result.best_fitness
+            log.info("evolve done  id=%s  fitness=%.1f", evolve_id, job.best_fitness)
+        except Exception as exc:  # noqa: BLE001
+            job.status = "error"
+            job.error = f"{type(exc).__name__}: {exc}"
+            log.error("evolve error  id=%s  %s", evolve_id, job.error)
+
+    asyncio.ensure_future(_drive())
+    return EvolveStartResponse(evolve_id=evolve_id, status=job.status)
+
+
+@router.get("/evolve/{evolve_id}", response_model=EvolveProgressResponse)
+def evolve_status(evolve_id: str, request: Request) -> EvolveProgressResponse:
+    reg = _registry(request)
+    job = reg.evolves.get(evolve_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"unknown evolve job {evolve_id!r}")
+    return EvolveProgressResponse(
+        evolve_id=evolve_id,
+        status=job.status,
+        generation=job.generation,
+        generations=job.generations,
+        best_fitness=job.best_fitness,
+        mean_fitness=job.mean_fitness,
+        best_overlay=job.best_overlay,
         error=job.error,
     )

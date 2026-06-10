@@ -42,6 +42,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--out", default=None, help="telemetry output path")
     p_run.set_defaults(func=_cmd_run)
 
+    # evolve
+    p_evolve = sub.add_parser("evolve", help="evolve swarm attack params against a defender")
+    p_evolve.add_argument("--scenario", default="swarm_24", help="base preset scenario name")
+    p_evolve.add_argument("--solver", default="greedy_urgent", help="defender solver to evolve against")
+    p_evolve.add_argument("--generations", type=int, default=30, help="number of GA generations")
+    p_evolve.add_argument("--population", type=int, default=40, help="GA population size")
+    p_evolve.add_argument("--seed", type=int, default=42, help="RNG seed")
+    p_evolve.add_argument("--count", type=int, default=24, help="swarm drone count")
+    p_evolve.add_argument("--behavior", default="flocking", help="swarm behavior (direct/flocking/staggered)")
+    p_evolve.add_argument("--out", default=None, help="output YAML path (default: runs/evolved_<scenario>.yaml)")
+    p_evolve.set_defaults(func=_cmd_evolve)  # type: ignore[name-defined]
+
     # batch
     p_batch = sub.add_parser("batch", help="run a headless sweep")
     p_batch.add_argument("--sweep", required=True, help="sweep spec name or .yaml path")
@@ -153,6 +165,48 @@ def _cmd_run(args: argparse.Namespace) -> int:
             indent=2,
         )
     )
+    return 0
+
+
+def _cmd_evolve(args: argparse.Namespace) -> int:
+    """Evolve swarm approach parameters to maximize leaks against a defender (plan spec)."""
+    import yaml  # pyyaml; listed in pyproject.toml deps
+    from beam.evolve.ga import GAConfig, run_ga
+    from beam.evolve.genome import genome_to_overlay
+
+    scenario = _resolve_scenario_name(args.scenario)
+    cfg = GAConfig(
+        base_scenario=scenario,
+        defender_solver=args.solver,
+        seed=args.seed,
+        population_size=args.population,
+        generations=args.generations,
+        base_swarm_count=args.count,
+        base_behavior=args.behavior,
+    )
+
+    def _progress(gen: int, best: float, mean: float) -> None:
+        print(f"  gen {gen:3d}/{args.generations}  best={best:.0f}  mean={mean:.0f}")
+
+    print(f"Evolving swarm against {args.solver!r} for {args.generations} generations...")
+    result = run_ga(cfg, on_generation=_progress)
+
+    if result.best_genome is None:
+        print("beam evolve: no genome produced (empty population?)", file=sys.stderr)
+        return 1
+
+    overlay = genome_to_overlay(
+        result.best_genome,
+        base_swarm_count=args.count,
+        base_behavior=args.behavior,
+    )
+    overlay["_source"] = "beam evolve"
+    overlay["_fitness"] = result.best_fitness
+
+    out_path = args.out or f"runs/evolved_{scenario}.yaml"
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(out_path).write_text(yaml.dump(overlay, sort_keys=True))
+    print(f"Best genome saved to {out_path}  (leaked_value={result.best_fitness:.0f})")
     return 0
 
 

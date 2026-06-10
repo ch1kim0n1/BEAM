@@ -35,6 +35,7 @@ __all__ = [
     "ScenarioStore",
     "RunController",
     "BatchJob",
+    "EvolveJob",
     "ParetoJob",
     "Registry",
     "merge_overlay",
@@ -336,6 +337,20 @@ class RunController:
 
 
 @dataclass
+class EvolveJob:
+    """A GA swarm evolution job (design spec section 4)."""
+
+    evolve_id: str
+    status: str = "running"
+    generation: int = 0
+    generations: int = 30
+    best_fitness: float = 0.0
+    mean_fitness: float = 0.0
+    best_overlay: Optional[dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+@dataclass
 class ParetoJob:
     """A Pareto sweep job (design spec section 3)."""
 
@@ -454,9 +469,11 @@ class Registry:
         self.runs: dict[str, RunController] = {}
         self.batches: dict[str, BatchJob] = {}
         self.paretos: dict[str, ParetoJob] = {}
+        self.evolves: dict[str, EvolveJob] = {}
         self._run_counter = itertools.count(1)
         self._batch_counter = itertools.count(1)
         self._pareto_counter = itertools.count(1)
+        self._evolve_counter = itertools.count(1)
 
     def new_run_id(self) -> str:
         return f"run_{next(self._run_counter)}"
@@ -466,3 +483,6 @@ class Registry:
 
     def new_pareto_id(self) -> str:
         return f"pareto_{next(self._pareto_counter)}"
+
+    def new_evolve_id(self) -> str:
+        return f"evolve_{next(self._evolve_counter)}"
