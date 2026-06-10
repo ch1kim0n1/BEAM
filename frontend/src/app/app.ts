@@ -80,9 +80,12 @@ export class BeamApp {
   private elParetoCanvas!: HTMLCanvasElement;
   private elStatus!: HTMLElement;
   private elModeToggle!: HTMLButtonElement;
+  private elViewToggle!: HTMLButtonElement;
   private elWowBtn!: HTMLButtonElement;
   private elReportBtn!: HTMLButtonElement;
   private elShareBtn!: HTMLButtonElement;
+  private view3d = false;
+  private el3dContainers: HTMLElement[] = [];
 
   private paretoChart!: ParetoChart;
   private paretoId: string | null = null;
@@ -171,6 +174,13 @@ export class BeamApp {
     this.elModeToggle.textContent = "Solver race: OFF";
     this.elModeToggle.addEventListener("click", () => void this.toggleMode());
     topActions.appendChild(this.elModeToggle);
+
+    this.elViewToggle = this.doc.createElement("button");
+    this.elViewToggle.className = "beam-view-toggle";
+    this.elViewToggle.type = "button";
+    this.elViewToggle.textContent = "3D: OFF";
+    this.elViewToggle.addEventListener("click", () => this.toggleView());
+    topActions.appendChild(this.elViewToggle);
 
     this.elReportBtn = this.doc.createElement("button");
     this.elReportBtn.className = "beam-report-toggle";
@@ -314,6 +324,7 @@ export class BeamApp {
   /** (Re)build the center stage for the current mode, allocating controllers. */
   private rebuildStage(): void {
     if (this.elShareBtn) this.elShareBtn.disabled = true;
+    this.el3dContainers = [];
     // Tear down existing controllers.
     this.ctrlA?.destroy();
     this.ctrlB?.destroy();
@@ -329,6 +340,7 @@ export class BeamApp {
         client: this.client,
         views: {
           battlefield: pane.field,
+          battlefield3dContainer: pane.field3d,
           scoreboard: pane.score,
           gapCanvas: this.elGapCanvas,
           costCanvas: this.elCostCanvas,
@@ -352,6 +364,7 @@ export class BeamApp {
         client: this.client,
         views: {
           battlefield: paneA.field,
+          battlefield3dContainer: paneA.field3d,
           scoreboard: paneA.score,
           gapCanvas: this.elGapCanvas,
           costCanvas: this.elCostCanvas,
@@ -364,6 +377,7 @@ export class BeamApp {
         client: this.client,
         views: {
           battlefield: paneB.field,
+          battlefield3dContainer: paneB.field3d,
           scoreboard: paneB.score,
         },
         title: solverB,
@@ -379,16 +393,21 @@ export class BeamApp {
   private makePane(title: string): {
     wrap: HTMLElement;
     field: HTMLElement;
+    field3d: HTMLElement;
     score: HTMLElement;
   } {
     const wrap = this.el("div", "beam-pane");
     const score = this.el("div", "beam-pane-score");
     const field = this.el("div", "beam-pane-field");
+    const field3d = this.el("div", "beam-pane-field beam-pane-field-3d");
+    field3d.style.display = "none";
     // Scoreboard above the battlefield (pdd.md 14.2: scoreboards under/over each).
     wrap.appendChild(score);
     wrap.appendChild(field);
+    wrap.appendChild(field3d);
+    this.el3dContainers.push(field3d);
     if (title) wrap.dataset.solver = title;
-    return { wrap, field, score };
+    return { wrap, field, field3d, score };
   }
 
   /** Two distinct solver names for the race, from the catalog when possible. */
@@ -661,6 +680,25 @@ export class BeamApp {
       );
       await this.startRuns();
     }
+  }
+
+  private toggleView(): void {
+    this.view3d = !this.view3d;
+    this.elViewToggle.textContent = this.view3d ? "3D: ON" : "3D: OFF";
+    this.elViewToggle.classList.toggle("active", this.view3d);
+
+    // Swap visibility of 2D / 3D containers in all panes
+    const panes2d = this.elStage.querySelectorAll<HTMLElement>(
+      ".beam-pane-field:not(.beam-pane-field-3d)",
+    );
+    panes2d.forEach((el) => { el.style.display = this.view3d ? "none" : ""; });
+    this.el3dContainers.forEach((el) => { el.style.display = this.view3d ? "" : "none"; });
+
+    // Activate / pause the appropriate renderer
+    this.ctrlA?.battlefield.setActive(!this.view3d);
+    this.ctrlA?.battlefield3d?.setActive(this.view3d);
+    this.ctrlB?.battlefield.setActive(!this.view3d);
+    this.ctrlB?.battlefield3d?.setActive(this.view3d);
   }
 
   // --- status ------------------------------------------------------------- //

@@ -12,7 +12,7 @@
 
 import { BeamClient, TelemetryClient } from "../net";
 import type { ServerMessage } from "../types";
-import { Battlefield } from "../render";
+import { Battlefield, Battlefield3D } from "../render";
 import { Scoreboard } from "../panels";
 import { GapChart, BreakevenChart } from "../charts";
 
@@ -25,6 +25,8 @@ export interface RunControllerViews {
   gapCanvas?: HTMLCanvasElement;
   /** Optional cost breakeven chart canvas. */
   costCanvas?: HTMLCanvasElement;
+  /** Optional container for the Three.js 3D renderer (hidden by default). */
+  battlefield3dContainer?: HTMLElement;
 }
 
 export interface RunControllerOptions {
@@ -52,6 +54,7 @@ export type RunStatus =
  */
 export class RunController {
   readonly battlefield: Battlefield;
+  readonly battlefield3d: Battlefield3D | null;
   readonly scoreboard: Scoreboard;
   readonly gap: GapChart | null;
   readonly cost: BreakevenChart | null;
@@ -81,12 +84,16 @@ export class RunController {
     });
     this.gap = opts.views.gapCanvas ? new GapChart() : null;
     this.cost = opts.views.costCanvas ? new BreakevenChart() : null;
+    this.battlefield3d = opts.views.battlefield3dContainer
+      ? new Battlefield3D({ parent: opts.views.battlefield3dContainer })
+      : null;
   }
 
   /** Initialize the Pixi renderer (idempotent). Must complete before frames. */
   async init(): Promise<void> {
     if (this.initialized) return;
     await this.battlefield.init();
+    if (this.battlefield3d) await this.battlefield3d.init();
     this.initialized = true;
     this.renderCharts(true);
   }
@@ -178,6 +185,7 @@ export class RunController {
     if (this.chartRaf != null) cancelAnimationFrame(this.chartRaf);
     this.chartRaf = null;
     this.battlefield.destroy();
+    this.battlefield3d?.destroy();
   }
 
   // --- telemetry dispatch ------------------------------------------------- //
@@ -186,6 +194,7 @@ export class RunController {
     switch (msg.type) {
       case "frame":
         this.battlefield.pushFrame(msg);
+        this.battlefield3d?.pushFrame(msg);
         this.scoreboard.applyFrame(msg);
         break;
       case "epoch":

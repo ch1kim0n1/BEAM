@@ -343,6 +343,16 @@ export class Battlefield {
     return this.turretPool.size;
   }
 
+  /** Pause or resume the Pixi ticker (used by 2D/3D toggle). */
+  setActive(active: boolean): void {
+    if (!this.ready) return;
+    if (active) {
+      this.app.ticker.start();
+    } else {
+      this.app.ticker.stop();
+    }
+  }
+
   /** Tear down Pixi resources and observers. */
   destroy(): void {
     if (this.destroyed) return;
