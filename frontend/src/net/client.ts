@@ -27,6 +27,9 @@ import {
   type ScenarioGetResponse,
   type SolversListResponse,
   type WeatherListResponse,
+  type ParetoStartRequest,
+  type ParetoStartResponse,
+  type ParetoResultsResponse,
 } from "../types";
 
 // --------------------------------------------------------------------------- //
@@ -145,6 +148,14 @@ export class BeamRestClient {
 
   batchResults(batchId: string): Promise<BatchResultsResponse> {
     return this.request("GET", `/api/batch/${encodeURIComponent(batchId)}/results`);
+  }
+
+  startPareto(req: ParetoStartRequest): Promise<ParetoStartResponse> {
+    return this.request("POST", "/api/batch/pareto", req);
+  }
+
+  paretoResults(paretoId: string): Promise<ParetoResultsResponse> {
+    return this.request("GET", `/api/batch/pareto/${encodeURIComponent(paretoId)}/results`);
   }
 
   // --- Catalog (12.1) ------------------------------------------------------ //

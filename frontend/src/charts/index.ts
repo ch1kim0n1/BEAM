@@ -14,6 +14,8 @@
 export { GapChart } from "./gap";
 export type { GapChartOptions } from "./gap";
 
+export { ParetoChart } from "./pareto";
+
 export { BreakevenChart, interpCrossings, parseBatch } from "./breakeven";
 export type { BreakevenChartOptions } from "./breakeven";
 

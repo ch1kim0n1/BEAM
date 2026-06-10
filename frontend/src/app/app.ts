@@ -17,6 +17,7 @@
 import { BeamClient } from "../net";
 import { ControlPanel, RunReport, ScenarioEditor, type ControlSink } from "../panels";
 import type { ControlMessage, RunSummaryResponse } from "../types";
+import { ParetoChart } from "../charts";
 import { RunController, type RunStatus } from "./runController";
 import { parseUrlToken, shareUrl, type ShareToken } from "./shareLink";
 
@@ -76,11 +77,15 @@ export class BeamApp {
   private elDashboards!: HTMLElement;
   private elGapCanvas!: HTMLCanvasElement;
   private elCostCanvas!: HTMLCanvasElement;
+  private elParetoCanvas!: HTMLCanvasElement;
   private elStatus!: HTMLElement;
   private elModeToggle!: HTMLButtonElement;
   private elWowBtn!: HTMLButtonElement;
   private elReportBtn!: HTMLButtonElement;
   private elShareBtn!: HTMLButtonElement;
+
+  private paretoChart!: ParetoChart;
+  private paretoId: string | null = null;
 
   // Stream A is always present; stream B exists only in race mode.
   private ctrlA: RunController | null = null;
@@ -126,6 +131,7 @@ export class BeamApp {
     this.mountPanel();
     this.mountEditor();
     this.rebuildStage();
+    this.paretoChart = new ParetoChart();
 
     const token = parseUrlToken();
     if (token) {
@@ -195,13 +201,23 @@ export class BeamApp {
     this.elStage = this.el("main", "beam-stage");
     this.elDashboards = this.el("aside", "beam-dashboards");
 
-    // Dashboards: two stacked chart cards.
+    // Dashboards: three stacked chart cards.
     const gapCard = this.chartCard("Solver race - objective & gap", "gap");
     this.elGapCanvas = gapCard.canvas;
     const costCard = this.chartCard("Cost exchange - breakeven", "cost");
     this.elCostCanvas = costCard.canvas;
     this.elDashboards.appendChild(gapCard.card);
     this.elDashboards.appendChild(costCard.card);
+
+    const paretoCard = this.chartCard("Pareto frontier - cost vs value saved", "pareto");
+    this.elParetoCanvas = paretoCard.canvas;
+    const paretoBtn = this.doc.createElement("button");
+    paretoBtn.type = "button";
+    paretoBtn.className = "beam-pareto-btn";
+    paretoBtn.textContent = "Run Pareto Analysis";
+    paretoBtn.addEventListener("click", () => void this.runParetoAnalysis());
+    paretoCard.card.insertBefore(paretoBtn, paretoCard.canvas);
+    this.elDashboards.appendChild(paretoCard.card);
 
     body.appendChild(this.elControls);
     body.appendChild(this.elStage);
@@ -446,6 +462,48 @@ export class BeamApp {
       this.setStatus("clipboard unavailable - share URL in DevTools console");
       console.info("BEAM share URL:", shareUrl(token));
     }
+  }
+
+  private async runParetoAnalysis(): Promise<void> {
+    if (!this.scenarioId) {
+      this.setStatus("load a scenario first before running Pareto analysis");
+      return;
+    }
+    this.setStatus("starting Pareto analysis (may take ~60s)...");
+    try {
+      const res = await this.client.startPareto({
+        scenario_id: this.scenarioId,
+        seed: this.lastSeed ?? 1337,
+        n_points: 15,
+        solver: "cp_sat",
+      });
+      this.paretoId = res.pareto_id;
+      this.pollParetoResults();
+    } catch (e) {
+      this.setStatus(`Pareto analysis failed to start: ${String(e)}`);
+    }
+  }
+
+  private pollParetoResults(): void {
+    if (!this.paretoId) return;
+    const id = this.paretoId;
+    const poll = async () => {
+      try {
+        const res = await this.client.paretoResults(id);
+        if (res.status === "done") {
+          this.paretoChart.setPoints(res.points);
+          this.paretoChart.render(this.elParetoCanvas);
+          this.setStatus(`Pareto analysis complete - ${res.points.length} frontier points`);
+        } else if (res.status === "error") {
+          this.setStatus(`Pareto error: ${res.error ?? "unknown"}`);
+        } else {
+          setTimeout(() => void poll(), 2000);
+        }
+      } catch {
+        // polling failed, stop
+      }
+    };
+    void poll();
   }
 
   /** The one-click "wow" path: load the preset scenario and start immediately. */

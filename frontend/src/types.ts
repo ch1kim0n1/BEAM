@@ -391,3 +391,35 @@ export interface WeatherMeta {
 export interface WeatherListResponse {
   profiles: WeatherMeta[];
 }
+
+// --------------------------------------------------------------------------- //
+// Pareto REST types                                                            //
+// --------------------------------------------------------------------------- //
+
+export interface ParetoStartRequest {
+  scenario_id?: string | null;
+  preset?: string | null;
+  seed?: number;
+  n_points?: number;
+  solver?: string;
+}
+
+export interface ParetoPointResponse {
+  lam: number;
+  value_saved: number;
+  total_cost: number;
+  kills: number;
+  leaks: number;
+}
+
+export interface ParetoStartResponse {
+  pareto_id: string;
+  status: string;
+}
+
+export interface ParetoResultsResponse {
+  pareto_id: string;
+  status: string;
+  points: ParetoPointResponse[];
+  error?: string | null;
+}
