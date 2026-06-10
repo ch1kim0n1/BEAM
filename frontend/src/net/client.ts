@@ -30,6 +30,9 @@ import {
   type ParetoStartRequest,
   type ParetoStartResponse,
   type ParetoResultsResponse,
+  type EvolveRequest,
+  type EvolveStartResponse,
+  type EvolveProgressResponse,
 } from "../types";
 
 // --------------------------------------------------------------------------- //
@@ -156,6 +159,14 @@ export class BeamRestClient {
 
   paretoResults(paretoId: string): Promise<ParetoResultsResponse> {
     return this.request("GET", `/api/batch/pareto/${encodeURIComponent(paretoId)}/results`);
+  }
+
+  startEvolve(req: EvolveRequest): Promise<EvolveStartResponse> {
+    return this.request("POST", "/api/evolve", req);
+  }
+
+  evolveStatus(evolveId: string): Promise<EvolveProgressResponse> {
+    return this.request("GET", `/api/evolve/${encodeURIComponent(evolveId)}`);
   }
 
   // --- Catalog (12.1) ------------------------------------------------------ //

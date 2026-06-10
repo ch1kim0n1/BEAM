@@ -393,6 +393,36 @@ export interface WeatherListResponse {
 }
 
 // --------------------------------------------------------------------------- //
+// Evolve REST types                                                           //
+// --------------------------------------------------------------------------- //
+
+export interface EvolveRequest {
+  preset?: string;
+  defender_solver?: string;
+  generations?: number;
+  population_size?: number;
+  seed?: number;
+  swarm_count?: number;
+  behavior?: string;
+}
+
+export interface EvolveStartResponse {
+  evolve_id: string;
+  status: string;
+}
+
+export interface EvolveProgressResponse {
+  evolve_id: string;
+  status: string;
+  generation: number;
+  generations: number;
+  best_fitness: number;
+  mean_fitness: number;
+  best_overlay?: Record<string, unknown> | null;
+  error?: string | null;
+}
+
+// --------------------------------------------------------------------------- //
 // Pareto REST types                                                            //
 // --------------------------------------------------------------------------- //
 

@@ -159,6 +159,8 @@ export interface ControlSink {
   send(msg: ControlMessage): void;
   /** Open the scenario editor drawer (optional - wired by app). */
   openEditor?(): void;
+  /** Start swarm evolution (optional - wired by app). */
+  startEvolve?(): void;
 }
 
 // --------------------------------------------------------------------------- //
@@ -399,6 +401,10 @@ export class ControlPanel {
     const editBtn = this.button("Edit Scenario", () => this.sink.openEditor?.());
     editBtn.className = "beam-edit-scenario";
     this.root.appendChild(editBtn);
+
+    const evolveBtn = this.button("Evolve Swarm", () => this.sink.startEvolve?.());
+    evolveBtn.className = "beam-evolve-btn";
+    this.root.appendChild(evolveBtn);
 
     this.refreshButtons();
   }

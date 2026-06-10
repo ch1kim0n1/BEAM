@@ -86,6 +86,7 @@ export class BeamApp {
 
   private paretoChart!: ParetoChart;
   private paretoId: string | null = null;
+  private evolveId: string | null = null;
 
   // Stream A is always present; stream B exists only in race mode.
   private ctrlA: RunController | null = null;
@@ -291,6 +292,7 @@ export class BeamApp {
       reset: (overrides) => void this.startFromControls(overrides),
       send: (msg) => this.broadcastControl(msg),
       openEditor: () => this.editor?.open(),
+      startEvolve: () => void this.startEvolution(),
     };
     this.panel = new ControlPanel({
       root: this.elControls,
@@ -498,6 +500,49 @@ export class BeamApp {
           this.setStatus(`Pareto error: ${res.error ?? "unknown"}`);
         } else {
           setTimeout(() => void poll(), 2000);
+        }
+      } catch {
+        // polling failed, stop
+      }
+    };
+    void poll();
+  }
+
+  private async startEvolution(): Promise<void> {
+    const state = this.panel.getState();
+    this.setStatus(`evolving swarm (${state.swarmSize} drones) against ${state.activeSolver}...`);
+    try {
+      const res = await this.client.startEvolve({
+        preset: this.scenarioLabel === WOW_PRESET ? WOW_PRESET : "swarm_24",
+        defender_solver: state.activeSolver,
+        generations: 20,
+        population_size: 30,
+        swarm_count: state.swarmSize,
+        behavior: state.behavior,
+      });
+      this.evolveId = res.evolve_id;
+      this.pollEvolution();
+    } catch (e) {
+      this.setStatus(`evolution failed to start: ${String(e)}`);
+    }
+  }
+
+  private pollEvolution(): void {
+    if (!this.evolveId) return;
+    const id = this.evolveId;
+    const poll = async () => {
+      try {
+        const res = await this.client.evolveStatus(id);
+        if (res.status === "done") {
+          this.setStatus(`evolution complete - best leaked value: ${res.best_fitness.toFixed(0)}`);
+          this.editor?.open();
+        } else if (res.status === "error") {
+          this.setStatus(`evolution error: ${res.error ?? "unknown"}`);
+        } else {
+          this.setStatus(
+            `evolving... gen ${res.generation}/${res.generations} best=${res.best_fitness.toFixed(0)}`,
+          );
+          setTimeout(() => void poll(), 3000);
         }
       } catch {
         // polling failed, stop
