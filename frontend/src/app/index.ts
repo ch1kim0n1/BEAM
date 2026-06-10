@@ -7,3 +7,5 @@ export type {
   RunControllerViews,
   RunStatus,
 } from "./runController";
+export type { ShareToken } from "./shareLink";
+export { encodeShareToken, decodeShareToken, shareUrl, parseUrlToken } from "./shareLink";

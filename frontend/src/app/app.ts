@@ -18,6 +18,7 @@ import { BeamClient } from "../net";
 import { ControlPanel, RunReport, type ControlSink } from "../panels";
 import type { ControlMessage, RunSummaryResponse } from "../types";
 import { RunController, type RunStatus } from "./runController";
+import { parseUrlToken, shareUrl, type ShareToken } from "./shareLink";
 
 /** The preset that the one-click "wow" button loads (pdd.md 4 / 15 Phase 3). */
 export const WOW_PRESET = "swarm_24";
@@ -79,6 +80,7 @@ export class BeamApp {
   private elModeToggle!: HTMLButtonElement;
   private elWowBtn!: HTMLButtonElement;
   private elReportBtn!: HTMLButtonElement;
+  private elShareBtn!: HTMLButtonElement;
 
   // Stream A is always present; stream B exists only in race mode.
   private ctrlA: RunController | null = null;
@@ -122,7 +124,13 @@ export class BeamApp {
     await this.loadCatalog();
     this.mountPanel();
     this.rebuildStage();
-    this.setStatus("ready - press “Load demo” to begin");
+
+    const token = parseUrlToken();
+    if (token) {
+      await this.loadFromShareToken(token);
+    } else {
+      this.setStatus('ready - press “Load demo” to begin');
+    }
   }
 
   // --- DOM skeleton ------------------------------------------------------- //
@@ -162,6 +170,15 @@ export class BeamApp {
     this.elReportBtn.disabled = true;
     this.elReportBtn.addEventListener("click", () => this.report.reopen());
     topActions.appendChild(this.elReportBtn);
+
+    this.elShareBtn = this.doc.createElement("button");
+    this.elShareBtn.className = "beam-share";
+    this.elShareBtn.type = "button";
+    this.elShareBtn.textContent = "⧉ Share";
+    this.elShareBtn.disabled = true;
+    this.elShareBtn.addEventListener("click", () => void this.copyShareLink());
+    topActions.appendChild(this.elShareBtn);
+
     top.appendChild(topActions);
 
     this.root.appendChild(top);
@@ -257,6 +274,7 @@ export class BeamApp {
 
   /** (Re)build the center stage for the current mode, allocating controllers. */
   private rebuildStage(): void {
+    if (this.elShareBtn) this.elShareBtn.disabled = true;
     // Tear down existing controllers.
     this.ctrlA?.destroy();
     this.ctrlB?.destroy();
@@ -357,6 +375,58 @@ export class BeamApp {
     }
   }
 
+  /** Load a run from a share token decoded from the ?run= URL param. */
+  private async loadFromShareToken(token: ShareToken): Promise<void> {
+    try {
+      if (this.solverNames.length === 0) await this.loadCatalog();
+      this.setStatus("loading shared run…");
+      const req =
+        token.preset != null
+          ? { preset: token.preset }
+          : { scenario: token.scenario ?? {} };
+      const created = await this.client.createScenario(req);
+      this.scenarioId = created.scenario_id;
+      this.scenarioLabel = token.preset ?? "shared scenario";
+      this.lastSeed = token.seed;
+      this.displaySeed = token.seed;
+      this.lastActiveSolver = token.solver;
+      this.panel.setSolver(token.solver);
+      await this.startRuns();
+      this.setStatus(`running shared run - solver: ${token.solver}`);
+    } catch (e) {
+      this.setStatus(`could not load shared run: ${String(e)}`);
+    }
+  }
+
+  /** Copy a share URL for the current run to the clipboard. */
+  private async copyShareLink(): Promise<void> {
+    if (!this.scenarioId) return;
+    const state = this.panel.getState();
+    const token: ShareToken = {
+      v: 1,
+      solver: this.lastActiveSolver || state.activeSolver,
+      seed: this.displaySeed,
+    };
+    if (this.scenarioLabel === WOW_PRESET) {
+      token.preset = WOW_PRESET;
+    } else {
+      try {
+        const res = await this.client.getScenario(this.scenarioId);
+        token.scenario = res.scenario;
+      } catch {
+        this.setStatus("could not generate share link");
+        return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl(token));
+      this.setStatus("share link copied to clipboard");
+    } catch {
+      this.setStatus("clipboard unavailable - share URL in DevTools console");
+      console.info("BEAM share URL:", shareUrl(token));
+    }
+  }
+
   /** The one-click "wow" path: load the preset scenario and start immediately. */
   private async loadWowPreset(): Promise<void> {
     try {
@@ -393,6 +463,7 @@ export class BeamApp {
         seed,
       });
       this.panel.setRunning(true);
+      this.elShareBtn.disabled = false;
     } else {
       const [solverA, solverB] = this.racePair();
       // Same scenario_id + same seed => identical seeded scenario for both
@@ -411,6 +482,7 @@ export class BeamApp {
         }),
       ]);
       this.panel.setRunning(true);
+      this.elShareBtn.disabled = false;
     }
   }
 
