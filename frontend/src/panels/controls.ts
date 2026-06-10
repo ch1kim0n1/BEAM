@@ -157,6 +157,8 @@ export interface ControlSink {
   /** Emit a live control message over the open socket (pause/resume/step/stop,
    *  set_solver, set_speed). */
   send(msg: ControlMessage): void;
+  /** Open the scenario editor drawer (optional - wired by app). */
+  openEditor?(): void;
 }
 
 // --------------------------------------------------------------------------- //
@@ -393,6 +395,10 @@ export class ControlPanel {
     bar.appendChild(this.btnStep);
     bar.appendChild(this.btnReset);
     this.root.appendChild(bar);
+
+    const editBtn = this.button("Edit Scenario", () => this.sink.openEditor?.());
+    editBtn.className = "beam-edit-scenario";
+    this.root.appendChild(editBtn);
 
     this.refreshButtons();
   }

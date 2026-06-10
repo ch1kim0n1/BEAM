@@ -15,7 +15,7 @@
 // composes the render/, panels/, charts/, and net/ modules over types.ts.
 
 import { BeamClient } from "../net";
-import { ControlPanel, RunReport, type ControlSink } from "../panels";
+import { ControlPanel, RunReport, ScenarioEditor, type ControlSink } from "../panels";
 import type { ControlMessage, RunSummaryResponse } from "../types";
 import { RunController, type RunStatus } from "./runController";
 import { parseUrlToken, shareUrl, type ShareToken } from "./shareLink";
@@ -87,6 +87,7 @@ export class BeamApp {
   private ctrlB: RunController | null = null;
 
   private panel!: ControlPanel;
+  private editor!: ScenarioEditor;
   private mode: Mode = "single";
 
   // Catalog from the backend (solver/weather names) - used to populate selects
@@ -123,6 +124,7 @@ export class BeamApp {
     });
     await this.loadCatalog();
     this.mountPanel();
+    this.mountEditor();
     this.rebuildStage();
 
     const token = parseUrlToken();
@@ -249,11 +251,30 @@ export class BeamApp {
 
   // --- control panel ------------------------------------------------------ //
 
+  private mountEditor(): void {
+    this.editor = new ScenarioEditor({
+      root: this.root,
+      weatherNames: this.weatherNames,
+      document: this.doc,
+      onSave: async (overlay) => {
+        this.setStatus("creating scenario from editor...");
+        const created = await this.client.createScenario({ scenario: overlay });
+        this.scenarioId = created.scenario_id;
+        this.scenarioLabel = "custom scenario";
+        this.displaySeed = (overlay.seed as number | undefined) ?? this.lastSeed;
+        this.lastSeed = this.displaySeed;
+        await this.startRuns();
+        this.setStatus("running custom scenario from editor");
+      },
+    });
+  }
+
   private mountPanel(): void {
     const sink: ControlSink = {
       start: (overrides) => void this.startFromControls(overrides),
       reset: (overrides) => void this.startFromControls(overrides),
       send: (msg) => this.broadcastControl(msg),
+      openEditor: () => this.editor?.open(),
     };
     this.panel = new ControlPanel({
       root: this.elControls,

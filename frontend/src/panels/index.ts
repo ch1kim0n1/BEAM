@@ -27,6 +27,15 @@ export {
 } from "./scoreboard";
 
 export {
+  ScenarioEditor,
+  editorOverlayFromState,
+  yamlPreview,
+  DEFAULT_EDITOR_STATE,
+  type EditorState,
+  type ScenarioEditorOptions,
+} from "./editor";
+
+export {
   RunReport,
   computeReportMetrics,
   fmtMoney,
