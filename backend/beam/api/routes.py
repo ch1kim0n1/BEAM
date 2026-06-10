@@ -32,6 +32,10 @@ from beam.api.models import (
     BatchResultsResponse,
     BatchStartRequest,
     BatchStartResponse,
+    ParetoPointResponse,
+    ParetoResultsResponse,
+    ParetoStartRequest,
+    ParetoStartResponse,
     RunControlResponse,
     RunStartRequest,
     RunStartResponse,
@@ -47,11 +51,13 @@ from beam.api.models import (
 from beam.api.runtime import (
     DEFAULT_REFERENCE_SOLVER,
     BatchJob,
+    ParetoJob,
     Registry,
     RunController,
     resolve_config,
     run_batch,
 )
+from beam.batch.pareto import ParetoSpec, pareto_sweep
 from beam.config import load_config, load_sweep
 from beam.schemas import ControlMessage
 from beam.solvers import REGISTRY, available_solvers
@@ -320,3 +326,76 @@ def list_weather() -> WeatherListResponse:
         for name, prof in cfg.physics.weather_profiles.items()
     ]
     return WeatherListResponse(profiles=profiles)
+
+
+# --------------------------------------------------------------------------- #
+# Pareto                                                                       #
+# --------------------------------------------------------------------------- #
+
+
+@router.post("/batch/pareto", response_model=ParetoStartResponse)
+async def start_pareto(req: ParetoStartRequest, request: Request) -> ParetoStartResponse:
+    """Start a Pareto sweep: N headless runs at different cost/value weight ratios."""
+    reg = _registry(request)
+
+    if req.solver != "cp_sat":
+        raise HTTPException(status_code=422, detail="Pareto sweep requires solver='cp_sat'")
+
+    # Resolve preset name: prefer explicit preset, then look up scenario_id
+    if req.preset is not None:
+        preset = req.preset
+    elif req.scenario_id is not None:
+        overlay = reg.scenarios.get(req.scenario_id)
+        if overlay is None:
+            raise HTTPException(status_code=404, detail=f"unknown scenario {req.scenario_id!r}")
+        preset = str(overlay.get("_preset", "swarm_24"))
+    else:
+        raise HTTPException(status_code=422, detail="provide preset or scenario_id")
+
+    pareto_id = reg.new_pareto_id()
+    job = ParetoJob(pareto_id=pareto_id, status="running")
+    reg.paretos[pareto_id] = job
+
+    spec = ParetoSpec(
+        scenario=preset,
+        seed=req.seed,
+        solver=req.solver,
+        n_points=req.n_points,
+    )
+
+    async def _drive() -> None:
+        try:
+            result = await asyncio.to_thread(pareto_sweep, spec)
+            job.points = result.points
+            job.status = "done"
+            log.info("pareto done  id=%s  points=%d", pareto_id, len(result.points))
+        except Exception as exc:  # noqa: BLE001
+            job.status = "error"
+            job.error = f"{type(exc).__name__}: {exc}"
+            log.error("pareto error  id=%s  %s", pareto_id, job.error)
+
+    asyncio.ensure_future(_drive())
+    return ParetoStartResponse(pareto_id=pareto_id, status=job.status)
+
+
+@router.get("/batch/pareto/{pareto_id}/results", response_model=ParetoResultsResponse)
+def pareto_results(pareto_id: str, request: Request) -> ParetoResultsResponse:
+    reg = _registry(request)
+    job = reg.paretos.get(pareto_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"unknown pareto job {pareto_id!r}")
+    return ParetoResultsResponse(
+        pareto_id=pareto_id,
+        status=job.status,
+        points=[
+            ParetoPointResponse(
+                lam=p.lam,
+                value_saved=p.value_saved,
+                total_cost=p.total_cost,
+                kills=p.kills,
+                leaks=p.leaks,
+            )
+            for p in job.points
+        ],
+        error=job.error,
+    )

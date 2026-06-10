@@ -33,6 +33,10 @@ __all__ = [
     "SolversListResponse",
     "WeatherMeta",
     "WeatherListResponse",
+    "ParetoStartRequest",
+    "ParetoPointResponse",
+    "ParetoStartResponse",
+    "ParetoResultsResponse",
 ]
 
 
@@ -196,3 +200,44 @@ class WeatherListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     profiles: list[WeatherMeta] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------- #
+# Pareto                                                                       #
+# --------------------------------------------------------------------------- #
+
+
+class ParetoStartRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_id: Optional[str] = None
+    preset: Optional[str] = None
+    seed: int = 1337
+    n_points: int = Field(default=20, ge=2, le=100)
+    solver: str = "cp_sat"
+
+
+class ParetoPointResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lam: float
+    value_saved: float
+    total_cost: float
+    kills: int
+    leaks: int
+
+
+class ParetoStartResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pareto_id: str
+    status: str
+
+
+class ParetoResultsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pareto_id: str
+    status: str
+    points: list[ParetoPointResponse] = Field(default_factory=list)
+    error: Optional[str] = None

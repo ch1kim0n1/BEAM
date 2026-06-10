@@ -35,6 +35,7 @@ __all__ = [
     "ScenarioStore",
     "RunController",
     "BatchJob",
+    "ParetoJob",
     "Registry",
     "merge_overlay",
     "resolve_config",
@@ -335,6 +336,16 @@ class RunController:
 
 
 @dataclass
+class ParetoJob:
+    """A Pareto sweep job (design spec section 3)."""
+
+    pareto_id: str
+    status: str = "running"
+    points: list[Any] = field(default_factory=list)
+    error: Optional[str] = None
+
+
+@dataclass
 class BatchJob:
     """A headless swarm-size (or arbitrary-parameter) sweep (pdd.md 10, 12.1).
 
@@ -436,17 +447,22 @@ def run_batch(job: BatchJob, store: "ScenarioStore") -> None:
 
 
 class Registry:
-    """Holds all live scenarios, runs, and batches for one server process."""
+    """Holds all live scenarios, runs, batches, and pareto jobs for one server process."""
 
     def __init__(self) -> None:
         self.scenarios = ScenarioStore()
         self.runs: dict[str, RunController] = {}
         self.batches: dict[str, BatchJob] = {}
+        self.paretos: dict[str, ParetoJob] = {}
         self._run_counter = itertools.count(1)
         self._batch_counter = itertools.count(1)
+        self._pareto_counter = itertools.count(1)
 
     def new_run_id(self) -> str:
         return f"run_{next(self._run_counter)}"
 
     def new_batch_id(self) -> str:
         return f"batch_{next(self._batch_counter)}"
+
+    def new_pareto_id(self) -> str:
+        return f"pareto_{next(self._pareto_counter)}"
