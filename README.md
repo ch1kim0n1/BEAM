@@ -204,9 +204,9 @@ faster. Docker is for hosted / CI deployments.
 - [x] Phase 1 - sim core (physics, kinematics, kill resolution, deterministic seeding)
 - [x] Phase 2 - solver suite, optimality gap, cost ledger, streaming, batch sweeps
 - [x] Phase 3 - frontend (battlefield, dashboards, solver-race split, tactical theme)
-- [ ] Phase 4 - 3D view, scenario editor, adaptive (learning) swarm AI, shareable run links
-- [ ] Multi-objective assignment (fold cost into the objective for a Pareto front)
-- [ ] Rust hot loop for thousand-drone scale
+- [x] Phase 4 - 3D view, scenario editor, adaptive (learning) swarm AI, shareable run links
+- [x] Multi-objective assignment (fold cost into the objective for a Pareto front)
+- [x] Rust hot loop for thousand-drone scale (PyO3 extension, numpy fallback)
 
 ## Contributing
 

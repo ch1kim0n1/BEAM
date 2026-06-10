@@ -27,7 +27,6 @@ export class Battlefield3D {
   private scene: THREE.Scene | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
   private rafId: number | null = null;
-  private active = false;
 
   private dronePool: Map<string, THREE.Mesh> = new Map();
   private turretPool: Map<string, { base: THREE.Mesh; barrel: THREE.Mesh }> = new Map();
@@ -92,7 +91,6 @@ export class Battlefield3D {
   }
 
   setActive(active: boolean): void {
-    this.active = active;
     if (active) {
       this.startLoop();
     } else {
