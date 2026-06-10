@@ -1,16 +1,15 @@
-# backend/beam/batch/pareto.py
 """Pareto sweep: run headless at N lambda values, collect (cost, value_saved) pairs."""
 
 from __future__ import annotations
 
-import copy
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from beam.batch.sweeps import SweepSpec, _build_point_config
 from beam.engine.loop import LoopConfig, run_headless
-from beam.solvers import REGISTRY
+from beam.solvers.base import REGISTRY
+from beam.solvers.cp_sat import CpSatSolver
 
 log = logging.getLogger(__name__)
 
@@ -48,48 +47,53 @@ def pareto_sweep(
     loop_cfg: Optional[LoopConfig] = None,
     on_point: Optional[Callable[[int, int], None]] = None,
 ) -> ParetoResult:
+    """Run headless at each lambda value, collecting (cost, value_saved) pairs.
+
+    At each lambda, CP-SAT uses cost_weight = 1 - lambda so the objective blends
+    value maximization (lambda=1) and cost minimization (lambda=0).
+    """
     if spec.n_points < 2:
         raise ValueError(f"n_points must be >= 2, got {spec.n_points}")
+
+    if spec.solver != "cp_sat":
+        raise ValueError("Pareto sweep requires solver='cp_sat' (supports cost_weight)")
 
     sweep_spec = SweepSpec(
         id="pareto",
         base_scenario=spec.scenario,
         seed=spec.seed,
         parameter="swarm_spec.count",
-        values=[1],
+        values=[spec.seed],  # value unused; we re-use the config as-is
         solvers=[spec.solver],
     )
     base_cfg = _build_point_config(sweep_spec, value=None)
 
     lambdas = [i / (spec.n_points - 1) for i in range(spec.n_points)]
     points: list[ParetoPoint] = []
-
-    original_solver = REGISTRY.get(spec.solver)
+    orig_class = REGISTRY.get(spec.solver)
 
     for idx, lam in enumerate(lambdas):
         cost_weight = 1.0 - lam
-        cfg = copy.deepcopy(base_cfg)
 
-        # Wrap the solver to inject cost_weight
-        orig = REGISTRY.get(spec.solver)
-        if orig is not None:
-            class _Wrapped(type(orig)):  # type: ignore[misc]
-                def solve(self, state, deadline_ms):  # type: ignore[override]
-                    return orig.solve(state, deadline_ms, cost_weight=cost_weight)
-            REGISTRY[spec.solver] = _Wrapped.__new__(_Wrapped)
-            REGISTRY[spec.solver].__dict__.update(orig.__dict__)
-            REGISTRY[spec.solver].__class__ = _Wrapped
+        # Temporarily replace the registered class with a subclass that
+        # injects cost_weight into every solve() call.
+        _cw = cost_weight  # cell variable for closure
 
+        class _WeightedCpSat(CpSatSolver):  # type: ignore[misc]
+            def solve(self, state, deadline_ms):  # type: ignore[override]
+                return super().solve(state, deadline_ms, cost_weight=_cw)
+
+        REGISTRY[spec.solver] = _WeightedCpSat  # type: ignore[assignment]
         try:
             result = run_headless(
-                cfg,
+                base_cfg,
                 active_solver=spec.solver,
                 enabled_solvers=[spec.solver],
                 loop_cfg=loop_cfg,
             )
         finally:
-            if original_solver is not None:
-                REGISTRY[spec.solver] = original_solver
+            if orig_class is not None:
+                REGISTRY[spec.solver] = orig_class  # type: ignore[assignment]
 
         ledger = result.summary.final_ledger
         points.append(ParetoPoint(
@@ -99,6 +103,10 @@ def pareto_sweep(
             kills=result.summary.kills,
             leaks=result.summary.leaks,
         ))
+        log.debug(
+            "pareto lambda=%.2f  value=%.0f  cost=%.0f",
+            lam, ledger.value_destroyed, ledger.cumulative_cost,
+        )
         if on_point:
             on_point(idx + 1, spec.n_points)
 
