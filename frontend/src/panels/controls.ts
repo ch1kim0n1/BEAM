@@ -235,6 +235,12 @@ export class ControlPanel {
     this.refreshButtons();
   }
 
+  setSolver(name: string): void {
+    const sel = this.inputs.activeSolver as HTMLSelectElement | undefined;
+    if (sel) sel.value = name;
+    this.state.activeSolver = name;
+  }
+
   // --- DOM construction --------------------------------------------------- //
 
   private el<K extends keyof HTMLElementTagNameMap>(

@@ -457,3 +457,19 @@ describe("Scoreboard view", () => {
     expect(sb.model.simClock).toBe(0);
   });
 });
+
+describe("ControlPanel.setSolver", () => {
+  it("updates activeSolver state and input value", () => {
+    const { doc, root } = makeRoot();
+    const { sink } = makeSink();
+    const panel = new ControlPanel({
+      root: asRoot(root),
+      sink,
+      solverNames: ["auction", "cp_sat", "ga"],
+      initial: { activeSolver: "auction" },
+      document: asDoc(doc),
+    });
+    panel.setSolver("ga");
+    expect(panel.getState().activeSolver).toBe("ga");
+  });
+});
