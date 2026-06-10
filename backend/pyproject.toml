@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "beam"
 version = "0.1.0"
-description = "BEAM — Battle Engagement & Aerial Mitigation: a simulation and OR-analysis tool for the Dynamic Weapon-Target Assignment problem (laser battery vs drone swarm)."
+description = "BEAM - Battle Engagement & Aerial Mitigation: a simulation and OR-analysis tool for the Dynamic Weapon-Target Assignment problem (laser battery vs drone swarm)."
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Vlad" }]
@@ -47,7 +47,7 @@ line-length = 100
 # improvements tracked separately; add them incrementally as the codebase is cleaned.
 select = ["E", "F"]
 ignore = [
-    "E501",  # line length — not enforced here
-    "E402",  # module-level import not at top — beam.api.app intentionally late-imports
+    "E501",  # line length - not enforced here
+    "E402",  # module-level import not at top - beam.api.app intentionally late-imports
              # solvers after configure_logging() to sequence startup correctly
 ]

@@ -1,17 +1,17 @@
-// BeamApp — the top-level frontend composition (pdd.md 14.1, 14.2, 14.3).
+// BeamApp - the top-level frontend composition (pdd.md 14.1, 14.2, 14.3).
 //
 // Layout (single mode):
 //   ┌──────────── top scoreboard ────────────┐
 //   │ left controls │ center battlefield │ right dashboards │
 //   └─────────────────────────────────────────┘
 //
-// Solver-race split mode (pdd.md 14.2 — the headline demo screen):
+// Solver-race split mode (pdd.md 14.2 - the headline demo screen):
 //   the center splits into two battlefields side by side, each with its own
 //   scoreboard, both started on the SAME scenario_id + seed but pinned to two
 //   different active solvers. The right dashboards follow the "A" (left) stream.
 //
 // The app owns: a BeamClient, the ControlPanel (left), one or two RunControllers
-// (center), and the dashboards (right). It never redefines a wire model — it only
+// (center), and the dashboards (right). It never redefines a wire model - it only
 // composes the render/, panels/, charts/, and net/ modules over types.ts.
 
 import { BeamClient } from "../net";
@@ -87,7 +87,7 @@ export class BeamApp {
   private panel!: ControlPanel;
   private mode: Mode = "single";
 
-  // Catalog from the backend (solver/weather names) — used to populate selects
+  // Catalog from the backend (solver/weather names) - used to populate selects
   // and choose the race pair. Falls back to scaffold defaults when unreachable.
   private solverNames: string[] = [];
   private weatherNames: string[] = [];
@@ -122,7 +122,7 @@ export class BeamApp {
     await this.loadCatalog();
     this.mountPanel();
     this.rebuildStage();
-    this.setStatus("ready — press “Load demo” to begin");
+    this.setStatus("ready - press “Load demo” to begin");
   }
 
   // --- DOM skeleton ------------------------------------------------------- //
@@ -177,9 +177,9 @@ export class BeamApp {
     this.elDashboards = this.el("aside", "beam-dashboards");
 
     // Dashboards: two stacked chart cards.
-    const gapCard = this.chartCard("Solver race — objective & gap", "gap");
+    const gapCard = this.chartCard("Solver race - objective & gap", "gap");
     this.elGapCanvas = gapCard.canvas;
-    const costCard = this.chartCard("Cost exchange — breakeven", "cost");
+    const costCard = this.chartCard("Cost exchange - breakeven", "cost");
     this.elCostCanvas = costCard.canvas;
     this.elDashboards.appendChild(gapCard.card);
     this.elDashboards.appendChild(costCard.card);
@@ -369,7 +369,7 @@ export class BeamApp {
       this.lastSeed = undefined; // preset carries its own seed (1337)
       this.displaySeed = 1337; // shown in the report; not sent as an override
       await this.startRuns();
-      this.setStatus(`running “${WOW_PRESET}” — seed 1337`);
+      this.setStatus(`running “${WOW_PRESET}” - seed 1337`);
     } catch (e) {
       this.setStatus(`could not load demo (is the backend on :8000?): ${String(e)}`);
     }
@@ -460,7 +460,7 @@ export class BeamApp {
     if (this.scenarioId) {
       this.setStatus(
         this.mode === "race"
-          ? "solver race — same seed, two solvers side by side"
+          ? "solver race - same seed, two solvers side by side"
           : "single view",
       );
       await this.startRuns();
@@ -472,7 +472,7 @@ export class BeamApp {
   private reflectStatus(s: RunStatus, detail?: string): void {
     if (s === "error") this.setStatus(`stream error: ${detail ?? ""}`);
     else if (s === "ended") {
-      this.setStatus("run complete — opening after-action report");
+      this.setStatus("run complete - opening after-action report");
       void this.showReport();
     }
   }
@@ -503,7 +503,7 @@ export class BeamApp {
         },
       });
       this.elReportBtn.disabled = false;
-      this.setStatus("run complete — after-action report ready (▤ Report to reopen)");
+      this.setStatus("run complete - after-action report ready (▤ Report to reopen)");
     } catch (e) {
       this.reportedRunId = null; // allow a manual retry
       this.setStatus(`run complete (report unavailable: ${String(e)})`);

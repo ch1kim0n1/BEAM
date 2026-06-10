@@ -5,7 +5,7 @@
 // the scene reads as a battlespace seen from above-and-behind rather than a flat
 // radar. The protected asset sits at the world origin; turret emplacements stand
 // on the ground and visibly slew their barrels to aim; drones FLY above the plane
-// — each casts a ground shadow and is connected to it by a faint tether, so
+// - each casts a ground shadow and is connected to it by a faint tether, so
 // altitude and depth are legible at a glance. Beams lance from elevated turret
 // muzzles to the drones with a bright core + bloom; kills throw a particle burst
 // and a shock ring; leaks flash the asset red and kick the camera (screen shake).
@@ -16,7 +16,7 @@
 // position is interpolated between the two most recent telemetry frames so motion
 // stays smooth at 60fps even when telemetry arrives at a lower cadence (the sim's
 // decision period). The render resolution is capped (below) so high-DPI screens do
-// not pay 4x fill cost. All wire shapes come from ../types — nothing is redefined
+// not pay 4x fill cost. All wire shapes come from ../types - nothing is redefined
 // here.
 
 import {
@@ -28,7 +28,7 @@ import {
 import type { DroneFrame, FrameMessage, TurretFrame } from "../types";
 
 // --------------------------------------------------------------------------- //
-// Palette (14.3: tactical, dark, high-contrast — near-black bg, emerald        //
+// Palette (14.3: tactical, dark, high-contrast - near-black bg, emerald        //
 // friendly/turret/beam, amber threat urgency, red leaks).                      //
 // --------------------------------------------------------------------------- //
 
@@ -66,8 +66,8 @@ export const DEFAULT_THEME: BattlefieldTheme = {
   // Value bands (illustrative; the host app may pass exact config-derived bounds).
   // Cheap quads read amber, expensive fixed-wing read a hotter orange-red.
   droneValueBands: [
-    { maxValue: 5000, color: 0xfbbf24 }, // amber — low value
-    { maxValue: Infinity, color: 0xf87171 }, // hotter — high value
+    { maxValue: 5000, color: 0xfbbf24 }, // amber - low value
+    { maxValue: Infinity, color: 0xf87171 }, // hotter - high value
   ],
   droneDefault: 0xfbbf24,
   droneEngaged: 0xfde68a,
@@ -333,7 +333,7 @@ export class Battlefield {
     this.maybeGrowExtent(frame);
   }
 
-  /** Number of pooled (allocated) drone sprites — for tests / diagnostics. */
+  /** Number of pooled (allocated) drone sprites - for tests / diagnostics. */
   get pooledDroneCount(): number {
     return this.dronePool.size + this.droneFree.length;
   }
@@ -549,7 +549,7 @@ export class Battlefield {
     this.world.position.set(this.cx + shx, this.cy + shy);
   }
 
-  /** Pulsing emerald ground glow at the asset — a quiet "defended" heartbeat. */
+  /** Pulsing emerald ground glow at the asset - a quiet "defended" heartbeat. */
   private renderAssetGlow(now: number): void {
     const g = this.assetGlow;
     g.clear();

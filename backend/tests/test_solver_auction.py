@@ -3,7 +3,7 @@
 The auction solver is a *heuristic* assignment policy, so its acceptance bar
 (mvp.md section 4, Phase-2) is:
 
-- it returns a **valid** :class:`Assignment` — every ordered target is in range and
+- it returns a **valid** :class:`Assignment` - every ordered target is in range and
   line of sight of its turret, and no target is claimed by two turrets
   (at-most-one-turret-per-target, pdd.md 7.3);
 - its self-reported objective is **<= the brute-force optimum** on a TINY instance,
@@ -235,7 +235,7 @@ def test_out_of_range_target_never_engaged(cfg):
 
 
 def _tiny_scenario(cfg):
-    """2 turrets, 3 inbound drones inside range — small enough to brute force."""
+    """2 turrets, 3 inbound drones inside range - small enough to brute force."""
     asset = Vec2(x=0.0, y=0.0)
     turrets = [
         _make_turret(cfg, "t1", Vec2(x=-200.0, y=0.0), 0.0),

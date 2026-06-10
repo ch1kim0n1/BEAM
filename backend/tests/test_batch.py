@@ -5,7 +5,7 @@ A tiny sweep must:
     net position changes sign across the swept range (pdd.md 10);
   * produce a gap-vs-swarm-size CSV whose gaps are non-negative (pdd.md 15 Phase 2 /
     mvp.md §4: heuristic gaps vs the exact reference are >= 0);
-  * be deterministic — same spec + seed -> identical artifacts (pdd.md 7.4).
+  * be deterministic - same spec + seed -> identical artifacts (pdd.md 7.4).
 
 The sweeps here are deliberately small (few swarm sizes, low epoch cap, fast solver set)
 so the test runs quickly while still exercising every code path.
@@ -153,7 +153,7 @@ def test_tiny_sweep_produces_breakeven_crossover(tmp_path):
     result = run_sweep(spec, out_dir=str(tmp_path), loop_cfg=FAST_LOOP)
 
     nets = [p.net_position for p in result.points]
-    # Either a genuine sign change (crossing detected) or monotone single-sign — assert
+    # Either a genuine sign change (crossing detected) or monotone single-sign - assert
     # the detector agrees with the data it was given.
     has_sign_change = any(a < 0 <= b or a > 0 >= b for a, b in zip(nets, nets[1:]))
     assert result.breakeven.crossed == (has_sign_change or nets[-1] == 0.0 or any(n == 0.0 for n in nets[:-1]))

@@ -1,7 +1,7 @@
 // BEAM frontend entry point (pdd.md 14.1–14.3).
 //
 // Composes the whole UI: top scoreboard, left control panel, center battlefield
-// (with the solver-race split mode), and right dashboards — all driven by the
+// (with the solver-race split mode), and right dashboards - all driven by the
 // validated net/ telemetry stream. The heavy lifting lives in app/BeamApp; this
 // file only mounts it into #app and surfaces fatal init errors.
 

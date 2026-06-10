@@ -1,4 +1,4 @@
-# BEAM default configuration — the full tunable tree (pdd.md section 18).
+# BEAM default configuration - the full tunable tree (pdd.md section 18).
 #
 # Every value here is ILLUSTRATIVE and exists only to make the simulation internally
 # consistent and demonstrable. None is sourced from real weapon-engineering data, and
@@ -12,7 +12,7 @@ physics:
   # Ordering by severity: clear < haze < rain < fog < dust.
   weather_profiles:
     # clear-air extinction is intentionally small so the laser stays lethal out to
-    # the turret's full range_max (5000 m) — drones take damage from the moment they
+    # the turret's full range_max (5000 m) - drones take damage from the moment they
     # spawn (~4000 m), so kills land within ~2 s instead of only once the swarm has
     # collapsed onto the asset. Degraded weather still murders effective range, which
     # keeps the "clear sky = long reach" story (haze/rain/fog/dust unchanged).
@@ -32,7 +32,7 @@ physics:
 # Per-turret defaults; a scenario's battery may override any field per turret.
 turret_defaults:
   power: 100.0                 # emitted power, illustrative units
-  slew_rate: 2.0              # rad/s (pdd.md section 8.4) — fast gimbals so turrets
+  slew_rate: 2.0              # rad/s (pdd.md section 8.4) - fast gimbals so turrets
                               # snap onto long-range targets and engage within ~1s
   settle_time: 0.1           # seconds settle after a slew
   range_max: 5000.0          # max effective range

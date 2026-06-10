@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "BEAM frontend — Pixi.js battlefield, control panel, gap + breakeven dashboards, solver-race split view.",
+  "description": "BEAM frontend - Pixi.js battlefield, control panel, gap + breakeven dashboards, solver-race split view.",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

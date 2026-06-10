@@ -103,14 +103,14 @@ describe("formatters", () => {
 
   it("formats percentages, ratios, latency and hashes defensively", () => {
     expect(fmtPct(0.83)).toBe("83%");
-    expect(fmtPct(null)).toBe("—");
+    expect(fmtPct(null)).toBe("-");
     expect(fmtRatio(8)).toBe("8.0×");
     expect(fmtRatio(1.5)).toBe("1.5×");
     expect(fmtRatio(12)).toBe("12×");
     expect(fmtMs(2.1)).toBe("2.1 ms");
     expect(fmtMs(45.2)).toBe("45 ms");
-    expect(fmtMs(null)).toBe("—");
+    expect(fmtMs(null)).toBe("-");
     expect(shortHash("sha256:" + "a".repeat(64))).toBe("aaaaaaaaaa…aaaaaa");
-    expect(shortHash(null)).toBe("—");
+    expect(shortHash(null)).toBe("-");
   });
 });

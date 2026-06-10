@@ -157,7 +157,7 @@ def spawn_swarm(
         The drone ``state`` is left at its default ``"alive"``. For staggered runs the
         engine should treat a drone as dormant (not yet integrated) until its release
         time; this function does not stamp release times onto the model (the contract
-        ``Drone`` has no such field) — use :func:`staggered_release_time` per index.
+        ``Drone`` has no such field) - use :func:`staggered_release_time` per index.
     """
     n = len(class_assignments)
     if n == 0:
@@ -254,7 +254,7 @@ def step_flocking(
     = cruise toward the asset, steering = desired - current). The combined steering
     acceleration is clamped to ``cfg.max_force`` and integrated; the resulting speed is
     capped at ``cruise_speed`` (so goal-seek can decelerate and turn a fleeing drone
-    around — a pure constant-speed re-normalization would let the swarm escape to
+    around - a pure constant-speed re-normalization would let the swarm escape to
     infinity after overshooting the asset). Mutates drones in place.
 
     Args:
@@ -450,7 +450,7 @@ def update_turret_aim(turret: Turret, desired_aim: float, dt: float) -> bool:
     """Slew ``turret.aim`` toward ``desired_aim`` in place, bounded by its slew rate.
 
     Returns ``True`` once the aim has reached ``desired_aim`` (within this step's
-    bound), else ``False`` (still slewing). Does not change ``turret.state`` — state
+    bound), else ``False`` (still slewing). Does not change ``turret.state`` - state
     transitions are the engine's responsibility.
     """
     new_aim = slew_aim(turret.aim, desired_aim, turret.slew_rate, dt)

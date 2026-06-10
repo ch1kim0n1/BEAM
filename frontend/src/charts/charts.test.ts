@@ -1,6 +1,6 @@
 // Tests for the dashboard charts (pdd.md 14.1). We avoid a DOM/jsdom dependency
 // by feeding the renderers a minimal fake <canvas> whose 2D context records the
-// calls it receives — enough to assert the render path runs end-to-end and that
+// calls it receives - enough to assert the render path runs end-to-end and that
 // the data-shaping (history windows, gap readout, crossover interpolation, batch
 // parsing) is correct.
 

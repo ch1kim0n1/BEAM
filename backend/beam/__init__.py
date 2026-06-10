@@ -1,4 +1,4 @@
-"""BEAM — Battle Engagement & Aerial Mitigation.
+"""BEAM - Battle Engagement & Aerial Mitigation.
 
 A deterministic software simulation and operations-research analysis tool that models
 a multi-turret high-energy laser battery defending a fixed asset against a drone swarm,

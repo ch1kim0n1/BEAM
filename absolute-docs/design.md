@@ -1,9 +1,9 @@
-# BEAM — UI/UX Design Specification
+# BEAM - UI/UX Design Specification
 
 | Field | Value |
 |---|---|
 | Document type | Design specification (visual system + interaction + component contracts) |
-| Status | v1.0 — authoritative for the frontend |
+| Status | v1.0 - authoritative for the frontend |
 | Companion docs | `PRODUCT_DEVELOPMENT_DOCUMENT.md` (model), `demo.md` (run-of-show) |
 | Audience | Frontend engineers, plus anyone touching visuals/motion |
 | Renderer | Pixi.js for the battlefield canvas; standard DOM/CSS for panels & charts |
@@ -125,7 +125,7 @@ Dark tactical base with emerald friendly, amber urgency, red threat/leak. Hex va
 --font-ui:    "Space Grotesk", "Inter", system-ui, sans-serif;   /* headings, labels */
 --font-data:  "JetBrains Mono", "IBM Plex Mono", monospace;       /* all numbers, telemetry, code */
 
-/* scale (px) — floors are projector-driven */
+/* scale (px) - floors are projector-driven */
 --t-display:  40 / 700   /* big scoreboard numbers (kills, protected%) */
 --t-h1:       22 / 600
 --t-h2:       16 / 600   /* card titles */
@@ -363,7 +363,7 @@ Answers: *does it pay off, and where?*
 
 ## 13. Asset deliverables (what to produce)
 
-- `frontend/src/theme/tokens.ts` — every token in §3 as exported constants; nothing hard-coded in components.
+- `frontend/src/theme/tokens.ts` - every token in §3 as exported constants; nothing hard-coded in components.
 - Pixi texture atlas: turret (4 states), drone (2 classes), asset, debris particle, beam segment.
 - Weather overlay shaders/filters (5 profiles).
 - Chart components: gap/compute, breakeven (shared axis/tween utilities).

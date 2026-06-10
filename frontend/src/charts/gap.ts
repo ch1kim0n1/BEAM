@@ -12,7 +12,7 @@
 // bound-based; we surface that in the readout and dash the reference line so the
 // chart never presents an unverified value as a true gap (pdd.md 9.3).
 //
-// Data comes straight from the EpochMessage wire model in types.ts — no schema
+// Data comes straight from the EpochMessage wire model in types.ts - no schema
 // is redefined here.
 
 import type { EpochMessage, EpochSolverEntry } from "../types";
@@ -316,7 +316,7 @@ export class GapChart {
     ys: ReturnType<typeof linearScale>,
   ): void {
     // Show the most recent epoch's solve times as a grouped bar cluster on the
-    // right edge of the bottom panel — a compact "who's spending compute now".
+    // right edge of the bottom panel - a compact "who's spending compute now".
     const last = this.samples[this.samples.length - 1];
     if (!last) return;
     const names = this.solverOrder.filter((n) => last.entries.has(n));

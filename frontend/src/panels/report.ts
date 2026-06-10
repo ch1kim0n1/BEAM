@@ -4,23 +4,23 @@
 // into RunSummary (kills, leaks, leaked value, the final cost ledger, and per-
 // solver average optimality gap + solve time) and persisted a determinism hash
 // over the full telemetry stream. This module surfaces that as a full-screen
-// "After-Action Report" — the decision-maker's read on a single engagement:
+// "After-Action Report" - the decision-maker's read on a single engagement:
 //
-//   • Outcome     — kills, leaks, protected-value %.
-//   • Cost exchange — the headline. Net position ($), cost-exchange ratio
+//   • Outcome     - kills, leaks, protected-value %.
+//   • Cost exchange - the headline. Net position ($), cost-exchange ratio
 //                     (value destroyed per $ spent), cost-per-kill, and the
 //                     cost breakdown (shot energy / maintenance / amortized capex).
-//   • Solvers     — leaderboard of every solver evaluated in the race: average
+//   • Solvers     - leaderboard of every solver evaluated in the race: average
 //                   optimality gap vs the reference and average decision latency,
 //                   so "which policy, and what did it cost us in compute" is one
 //                   glance.
-//   • Provenance  — the SHA-256 telemetry hash: this run is bit-for-bit
+//   • Provenance  - the SHA-256 telemetry hash: this run is bit-for-bit
 //                   reproducible from its seed, which is the claim that matters
 //                   for an audited, deterministic decision system.
 //
 // Split like the rest of panels/: pure helpers (metric derivation + formatting)
 // over a thin DOM view. Every number originates from the validated wire models in
-// ../types — nothing is recomputed against the engine, only derived for display.
+// ../types - nothing is recomputed against the engine, only derived for display.
 
 import type { RunSummary, RunSummaryResponse } from "../types";
 
@@ -34,13 +34,13 @@ export interface RunReportContext {
   scenarioLabel?: string;
   /** Seed the run was driven with, if known (presets carry their own). */
   seed?: number;
-  /** Active (driving) solver — highlighted in the leaderboard. */
+  /** Active (driving) solver - highlighted in the leaderboard. */
   activeSolver?: string;
   /** Reference solver (optimal baseline gaps are measured against), e.g. cp_sat. */
   referenceSolver?: string;
   /** Protected-value fraction [0,1] as tracked live by the scoreboard. */
   protectedValueFrac?: number;
-  /** Simulation duration (seconds) — the latest telemetry clock. */
+  /** Simulation duration (seconds) - the latest telemetry clock. */
   simSeconds?: number;
   /** Epochs (decision periods) elapsed. */
   epochs?: number;
@@ -154,7 +154,7 @@ function numOrNull(v: unknown): number | null {
 
 /** Compact currency, e.g. 1234567 -> "$1.23M", -800 -> "-$800". */
 export function fmtMoney(v: number, signed = false): string {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return "-";
   const sign = v < 0 ? "-" : signed ? "+" : "";
   const a = Math.abs(v);
   let body: string;
@@ -166,7 +166,7 @@ export function fmtMoney(v: number, signed = false): string {
 }
 
 export function fmtPct(frac: number | null, digits = 0): string {
-  if (frac == null || !Number.isFinite(frac)) return "—";
+  if (frac == null || !Number.isFinite(frac)) return "-";
   return `${(frac * 100).toFixed(digits)}%`;
 }
 
@@ -178,26 +178,26 @@ export function fmtPct(frac: number | null, digits = 0): string {
  * than an absurd 15-digit percentage, so the report never prints garbage.
  */
 export function fmtGap(frac: number | null): string {
-  if (frac == null || !Number.isFinite(frac)) return "—";
+  if (frac == null || !Number.isFinite(frac)) return "-";
   if (Math.abs(frac) <= 5) return `${(frac * 100).toFixed(1)}%`;
   // Out-of-band: render the raw magnitude compactly (e.g. "-1.2e13").
   return frac.toExponential(1);
 }
 
 export function fmtMs(v: number | null): string {
-  if (v == null || !Number.isFinite(v)) return "—";
+  if (v == null || !Number.isFinite(v)) return "-";
   if (v >= 1000) return (v / 1000).toFixed(2) + " s";
   if (v >= 10) return v.toFixed(0) + " ms";
   return v.toFixed(1) + " ms";
 }
 
 export function fmtRatio(v: number | null): string {
-  if (v == null || !Number.isFinite(v)) return "—";
+  if (v == null || !Number.isFinite(v)) return "-";
   return `${v.toFixed(v >= 10 ? 0 : 1)}×`;
 }
 
 export function fmtClock(seconds: number | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds)) return "—";
+  if (seconds == null || !Number.isFinite(seconds)) return "-";
   const s = Math.max(0, seconds);
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
@@ -206,7 +206,7 @@ export function fmtClock(seconds: number | undefined): string {
 
 /** Short hash for display: first 10 + last 6 of a hex digest. */
 export function shortHash(h: string | null | undefined): string {
-  if (!h) return "—";
+  if (!h) return "-";
   const hex = h.startsWith("sha256:") ? h.slice(7) : h;
   if (hex.length <= 20) return hex;
   return `${hex.slice(0, 10)}…${hex.slice(-6)}`;
@@ -329,9 +329,9 @@ export class RunReport {
       this.rows([
         ["Value destroyed", fmtMoney(m.valueDestroyed)],
         ["Total cost", fmtMoney(m.cost)],
-        ["— shot energy", fmtMoney(m.shotEnergyCost)],
-        ["— maintenance", fmtMoney(m.maintenanceCost)],
-        ["— capex (amortized)", fmtMoney(m.capexAmortized)],
+        ["- shot energy", fmtMoney(m.shotEnergyCost)],
+        ["- maintenance", fmtMoney(m.maintenanceCost)],
+        ["- capex (amortized)", fmtMoney(m.capexAmortized)],
         ["Engagements opened", String(m.engagements)],
       ]),
     );
@@ -354,9 +354,9 @@ export class RunReport {
     right.appendChild(
       this.rows([
         ["Run ID", data.response.run_id],
-        ["Seed", ctx.seed != null ? String(ctx.seed) : "—"],
-        ["Epochs", ctx.epochs != null ? String(ctx.epochs) : "—"],
-        ["Active solver", ctx.activeSolver ?? "—"],
+        ["Seed", ctx.seed != null ? String(ctx.seed) : "-"],
+        ["Epochs", ctx.epochs != null ? String(ctx.epochs) : "-"],
+        ["Active solver", ctx.activeSolver ?? "-"],
         ["Decision latency", fmtMs(m.activeSolveMs)],
         ["Telemetry hash", shortHash(data.response.telemetry_hash)],
       ]),
@@ -379,7 +379,7 @@ export class RunReport {
     title.textContent = "After-Action Report";
     head.appendChild(title);
     const sub = this.div("beam-report-sub");
-    sub.textContent = `Run ${data.response.run_id} — summary not available yet (status: ${data.response.status}).`;
+    sub.textContent = `Run ${data.response.run_id} - summary not available yet (status: ${data.response.status}).`;
     head.appendChild(sub);
     card.appendChild(head);
     card.appendChild(this.actions(data));
@@ -440,7 +440,7 @@ export class RunReport {
       wrap.appendChild(row);
     }
     const legend = this.div("beam-report-tlegend");
-    legend.textContent = "* optimal reference — gaps are measured against it.";
+    legend.textContent = "* optimal reference - gaps are measured against it.";
     wrap.appendChild(legend);
     return wrap;
   }
@@ -460,7 +460,7 @@ export class RunReport {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      /* clipboard/download unavailable (e.g. headless) — non-fatal */
+      /* clipboard/download unavailable (e.g. headless) - non-fatal */
     }
   }
 

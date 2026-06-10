@@ -7,7 +7,7 @@
 // no DOM required.
 //
 // Inputs come straight off the validated wire types (FrameMessage / EpochMessage
-// from src/types.ts). We never recompute backend numbers — we surface them.
+// from src/types.ts). We never recompute backend numbers - we surface them.
 // "Protected-value %" is the one derived figure, and its definition is documented
 // where it is computed.
 
@@ -34,7 +34,7 @@ export interface ScoreboardModel {
   protectedValueFrac: number;
   /** Name of the solver currently driving the live run. */
   activeSolver: string;
-  /** Simulation clock (seconds) — the latest telemetry timestamp. */
+  /** Simulation clock (seconds) - the latest telemetry timestamp. */
   simClock: number;
   /** Latest epoch index seen (for context / debugging). */
   epoch: number;
@@ -235,7 +235,7 @@ export class Scoreboard {
     set("kills", String(this.model.kills));
     set("leaks", String(this.model.leaks));
     set("protected", formatPercent(this.model.protectedValueFrac));
-    set("solver", this.model.activeSolver || "—");
+    set("solver", this.model.activeSolver || "-");
     set("clock", formatClock(this.model.simClock));
   }
 }

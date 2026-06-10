@@ -11,14 +11,14 @@ Model (pdd.md section 8.6):
 - It dies the instant cumulative delivered energy reaches ``E_kill = hardness``
   (``alive``/``engaged`` -> ``dead``).
 - Breaking the beam (the turret re-slews away / stops firing this drone) loses all
-  kill progress, UNLESS ``partial_energy_retention`` is enabled — a deliberate
+  kill progress, UNLESS ``partial_energy_retention`` is enabled - a deliberate
   "cooling/repair" model that keeps the scheduling problem honest by default
   (pdd.md section 8.6).
 - A drone that reaches the asset leaks (``alive``/``engaged`` -> ``leaked``); the
   objective penalizes it by its value (pdd.md sections 7.2, 7.3).
 
-NO physics or policy constants are hard-coded here. Everything tunable — whether
-partial energy is retained, and how close to the asset counts as "reached" — flows in
+NO physics or policy constants are hard-coded here. Everything tunable - whether
+partial energy is retained, and how close to the asset counts as "reached" - flows in
 from config via :class:`KillParams`, supplied by the engine/decision-loop caller.
 The energy *deposition rate* itself is computed by the physics module; this module
 only integrates the already-delivered energy and applies the kill/leak/break rules.
@@ -41,7 +41,7 @@ __all__ = [
 
 
 # --------------------------------------------------------------------------- #
-# Tunables (sourced from config by the caller — never hard-coded here)         #
+# Tunables (sourced from config by the caller - never hard-coded here)         #
 # --------------------------------------------------------------------------- #
 
 
@@ -100,7 +100,7 @@ def deposit_energy(drone: Drone, energy: float) -> bool:
 
 
 def break_beam(drone: Drone, params: KillParams) -> None:
-    """Handle a beam break — the turret stopped firing this drone before kill.
+    """Handle a beam break - the turret stopped firing this drone before kill.
 
     With ``partial_energy_retention`` disabled (the default), all kill progress is
     lost and the drone reverts to ``alive`` (pdd.md section 8.6: the cooling/repair
@@ -166,7 +166,7 @@ def resolve_step(
     For each live drone, in the given (fixed) iteration order:
 
     1. If it appears in ``deliveries`` with positive energy, that energy is deposited
-       (it is being continuously engaged this sub-step) — it may die.
+       (it is being continuously engaged this sub-step) - it may die.
     2. If it does NOT appear in ``deliveries`` (or has zero delivery) and it currently
        carries kill progress, the beam is considered broken for it
        (:func:`break_beam`).
@@ -183,7 +183,7 @@ def resolve_step(
         params: config-sourced kill tunables.
 
     Returns:
-        ``(newly_dead, newly_leaked)`` — lists of drones whose state flipped this step,
+        ``(newly_dead, newly_leaked)`` - lists of drones whose state flipped this step,
         each in iteration order.
     """
     newly_dead: list[Drone] = []

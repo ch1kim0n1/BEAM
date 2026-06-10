@@ -2,8 +2,8 @@
 
 Both solvers search the same decision space as the exact reference (pdd.md sections
 7.2 / 7.3): a joint **assignment** of targets to turrets *plus* a **per-turret
-permutation** (firing order). They optimize the battery objective from section 7.3 —
-the total value of drones killed before they leak — under the per-turret single-machine
+permutation** (firing order). They optimize the battery objective from section 7.3 -
+the total value of drones killed before they leak - under the per-turret single-machine
 schedule-feasibility model of section 7.2 (sequence-dependent slew setup + dwell-to-kill
 + thermal budget + range + line-of-sight).
 
@@ -27,7 +27,7 @@ Design notes / hard rules honored:
 
 The two concrete classes register themselves under the names ``"ga"`` and ``"sa"``;
 ``solver.metaheuristic`` in config selects the project default between them (the engine
-reads that key — this module just exposes both registered solvers).
+reads that key - this module just exposes both registered solvers).
 """
 
 from __future__ import annotations
@@ -236,7 +236,7 @@ def _feasible_turrets_for_drone(ctx: _ScoringContext, j: int) -> list[int]:
 class MetaheuristicSolver:
     """Shared machinery for the GA and SA solvers over (assignment + permutation).
 
-    A *candidate* is represented as ``dict[turret_idx, list[drone_idx]]`` — a per-turret
+    A *candidate* is represented as ``dict[turret_idx, list[drone_idx]]`` - a per-turret
     firing order with each drone assigned to at most one turret. Candidates are scored by
     :class:`_ScoringContext`. Subclasses implement :meth:`_search`, the anytime
     optimization loop, and set :attr:`name`.

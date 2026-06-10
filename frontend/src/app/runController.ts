@@ -1,4 +1,4 @@
-// RunController — drives ONE telemetry stream into one set of views.
+// RunController - drives ONE telemetry stream into one set of views.
 //
 // A controller owns: a battlefield renderer, a scoreboard, and (optionally) the
 // gap + breakeven dashboards. It is the glue between the validated telemetry
@@ -154,7 +154,7 @@ export class RunController {
       try {
         send(this.socket);
       } catch {
-        /* socket not open yet; ignore — caller may retry on next user action */
+        /* socket not open yet; ignore - caller may retry on next user action */
       }
     }
   }
@@ -201,7 +201,7 @@ export class RunController {
         this.setStatus("error", JSON.stringify(msg.detail));
         break;
       case "ack":
-        // Transport ack — no view change; host reads it via onStatus if needed.
+        // Transport ack - no view change; host reads it via onStatus if needed.
         break;
     }
   }

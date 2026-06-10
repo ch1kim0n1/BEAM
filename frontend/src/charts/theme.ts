@@ -134,7 +134,7 @@ export function linearScale(
 }
 
 /**
- * "Nice" rounded tick step for a given raw span and target tick count — the
+ * "Nice" rounded tick step for a given raw span and target tick count - the
  * classic 1/2/5 * 10^k progression. Pure + deterministic.
  */
 export function niceStep(span: number, targetTicks: number): number {

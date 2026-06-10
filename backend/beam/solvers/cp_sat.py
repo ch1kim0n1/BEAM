@@ -1,9 +1,9 @@
 """Exact reference solver: CP-SAT (OR-Tools) for the battery problem (pdd.md 9.2.6).
 
 This is the *exact reference* in the solver race (pdd.md sections 9.2 item 6, 9.3,
-12). It models the full battery problem of pdd.md section 7.3 — assignment of targets
+12). It models the full battery problem of pdd.md section 7.3 - assignment of targets
 to turrets *plus* per-turret sequencing with sequence-dependent slew setup, hard
-deadlines (time-to-impact), and the thermal budget — as a single CP-SAT constraint
+deadlines (time-to-impact), and the thermal budget - as a single CP-SAT constraint
 model, and maximizes the value of drones killed before they leak (pdd.md 7.3). The
 objective it proves optimal is the value the heuristics' optimality gap is measured
 against (pdd.md 9.3): on small instances it equals the brute-force optimum

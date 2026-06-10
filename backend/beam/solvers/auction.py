@@ -13,7 +13,7 @@ completion time ``C_i(j) = slew_i->j + d_ij`` (and, for additional targets queue
 the same turret, the cumulative single-machine completion time of pdd.md 7.2) is at
 most ``TTI_j``. ``d_ij`` (dwell-to-kill) and the slew setup time come from
 ``beam.engine.physics`` so range, weather (``weather_alpha``) and thermal load drive
-the score — no physics constants are duplicated here.
+the score - no physics constants are duplicated here.
 
 Algorithm
 ---------
@@ -21,7 +21,7 @@ Algorithm
    ``a[i][j] = v_j`` if turret i can kill j before ``TTI_j`` from its current aim
    (a single, first-in-queue kill), else ``0`` (infeasible / un-profitable).
 2. Solve the maximum-weight linear assignment (one target per turret) with a
-   self-contained **Bertsekas auction** (the solver's namesake) — deterministic,
+   self-contained **Bertsekas auction** (the solver's namesake) - deterministic,
    integer-free, and dependency-light.
 3. For each turret, starting from its assigned primary target, greedily append more
    unassigned feasible targets in **earliest-deadline (smallest TTI) order**, keeping
@@ -86,7 +86,7 @@ class AuctionSolver:
         # Mirror physics.track_efficiency from config when not explicitly given, so the
         # solver's dwell-to-kill feasibility scoring matches what the engine actually
         # integrates. A hardcoded steeper falloff made the solver believe distant
-        # targets were unkillable and refuse to assign them until the swarm closed in —
+        # targets were unkillable and refuse to assign them until the swarm closed in -
         # the laser only engaged at short range despite its true reach. (Same
         # config-defaulting pattern as cp_sat / greedy_nearest / metaheuristic.)
         if track_base is None or track_range_falloff is None:
@@ -182,7 +182,7 @@ class AuctionSolver:
                 # part-killed (energy_absorbed > 0) needs only its remainder, so an
                 # in-progress engagement stays feasible/cheap and the auction keeps it
                 # instead of thrashing to a fresh target (pdd.md 8.3/8.6). Physically
-                # correct — only the remaining energy must be delivered.
+                # correct - only the remaining energy must be delivered.
                 remaining = max(0.0, dr.hardness - dr.energy_absorbed)
                 out[i, j] = float(physics.dwell_to_kill(remaining, dep))
         return out
@@ -331,7 +331,7 @@ class AuctionSolver:
         # Reserve every turret's auction-assigned primary up front. Without this, an
         # earlier-indexed turret's greedy "extras" scan (which only excludes already-
         # taken targets) could grab a later turret's primary, which that later turret
-        # then re-queues unconditionally — double-claiming one target. The steep legacy
+        # then re-queues unconditionally - double-claiming one target. The steep legacy
         # track falloff hid this by making few extras feasible; at realistic laser reach
         # many extras are feasible and the collision surfaces (pdd.md 7.3: a target is
         # assigned to at most one turret).

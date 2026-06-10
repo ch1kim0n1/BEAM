@@ -22,7 +22,7 @@ Feasibility mirrors the battery problem (pdd.md section 7.3):
                        headroom before it would trip forced cooldown      (pdd.md 8.5)
 
 The reported ``objective_estimate`` is the total value of targets this assignment
-expects to kill before their deadline — exactly the objective the optimality gap is
+expects to kill before their deadline - exactly the objective the optimality gap is
 measured against (pdd.md sections 7.3, 9.3).
 
 Determinism (pdd.md section 21): the solver reads only ``state`` and uses no RNG. The

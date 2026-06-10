@@ -2,18 +2,18 @@
 //
 // Two modes off the same instance:
 //
-//   LIVE  — cumulative cost vs value destroyed over sim time, with the
+//   LIVE  - cumulative cost vs value destroyed over sim time, with the
 //           net-position (value_destroyed - cumulative_cost) zero crossover
 //           highlighted. This is the per-run ledger telling the story that the
 //           per-shot laser is cheap but the battery only goes net-positive once
 //           enough value has been destroyed (pdd.md 10).
 //
-//   BATCH — net_position vs swept parameter (swarm size), with the zero
+//   BATCH - net_position vs swept parameter (swarm size), with the zero
 //           crossover point(s) marked. Sourced from BatchResultsResponse, the
 //           breakeven curve the backend computes headless (pdd.md 10, 15 Ph2).
 //
 // All numbers come from the EpochMessage ledger / BatchResultsResponse wire
-// models in types.ts — nothing is recomputed or re-defined here.
+// models in types.ts - nothing is recomputed or re-defined here.
 
 import type { BatchResultsResponse, EpochMessage } from "../types";
 import {

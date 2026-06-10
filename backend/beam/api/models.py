@@ -2,7 +2,7 @@
 
 These models are *transport envelopes* for the REST surface only. They never redefine
 any contract model from :mod:`beam.schemas` (domain entities, telemetry/control wire
-models) — those are imported and reused verbatim. A scenario create request, for
+models) - those are imported and reused verbatim. A scenario create request, for
 example, carries a raw scenario dict (validated by the engine's ``build_scenario`` /
 ``load_config`` path) plus the identifiers the REST layer needs to track runs/batches.
 

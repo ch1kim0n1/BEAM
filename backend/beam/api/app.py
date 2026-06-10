@@ -54,7 +54,7 @@ def configure_logging() -> None:
                 }
             },
             "root": {"level": level, "handlers": ["stdout"]},
-            # Quieten uvicorn's duplicate access log — its own handler handles it.
+            # Quieten uvicorn's duplicate access log - its own handler handles it.
             "loggers": {
                 "uvicorn.access": {"propagate": False},
             },

@@ -208,7 +208,7 @@ def test_returns_valid_assignment_type():
 
 
 def test_at_most_one_turret_per_target():
-    """pdd.md 7.3: Sum_i x_ij <= 1 — no target served by two turrets."""
+    """pdd.md 7.3: Sum_i x_ij <= 1 - no target served by two turrets."""
     state = _tiny_world()
     a = GreedyNearestSolver(seed=1337).solve(state, deadline_ms=200)
     seen: set[str] = set()

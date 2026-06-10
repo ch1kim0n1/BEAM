@@ -1,4 +1,4 @@
-"""BEAM pydantic v2 data models — the shared contract.
+"""BEAM pydantic v2 data models - the shared contract.
 
 Source of truth: ``pdd.md`` sections 12 (interface contracts) and 13 (data models).
 
@@ -22,7 +22,7 @@ SCHEMA_VERSION: str = "1.0"
 
 
 # --------------------------------------------------------------------------- #
-# Enumerated states (string literals — stable across the wire)                #
+# Enumerated states (string literals - stable across the wire)                #
 # --------------------------------------------------------------------------- #
 
 DroneState = Literal["alive", "engaged", "dead", "leaked"]
@@ -90,7 +90,7 @@ class Drone(BaseModel):
 
 
 class Turret(BaseModel):
-    """A single laser emitter — one beam (pdd.md section 13)."""
+    """A single laser emitter - one beam (pdd.md section 13)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -241,7 +241,7 @@ class RunSummary(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# Telemetry wire models — server -> client (pdd.md section 12.2)               #
+# Telemetry wire models - server -> client (pdd.md section 12.2)               #
 # --------------------------------------------------------------------------- #
 
 
@@ -342,7 +342,7 @@ class EpochMessage(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# Control wire model — client -> server (pdd.md section 12.3)                  #
+# Control wire model - client -> server (pdd.md section 12.3)                  #
 # --------------------------------------------------------------------------- #
 
 

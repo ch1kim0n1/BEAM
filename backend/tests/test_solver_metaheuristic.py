@@ -136,7 +136,7 @@ def brute_force_optimum(ctx: _ScoringContext) -> float:
 
     Enumerates every assignment of drones to turrets (or un-engaged) and, for each, every
     per-turret firing permutation, scoring with the solver's own scoring core. Tractable
-    only for tiny instances — that is the point (the gap reference).
+    only for tiny instances - that is the point (the gap reference).
     """
     n_t = ctx.n_turrets
     n_d = ctx.n_drones

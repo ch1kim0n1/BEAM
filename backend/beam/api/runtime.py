@@ -2,12 +2,12 @@
 
 This is the stateful core behind the REST + WebSocket surface (pdd.md 12). It owns:
 
-- :class:`ScenarioStore` — validated scenario overlays keyed by an opaque id;
-- :class:`RunController` — wraps the synchronous :class:`beam.engine.loop.DecisionLoop`
+- :class:`ScenarioStore` - validated scenario overlays keyed by an opaque id;
+- :class:`RunController` - wraps the synchronous :class:`beam.engine.loop.DecisionLoop`
   in an asyncio driver so a run can be paused/resumed/stepped/stopped and its speed
   changed at runtime (pdd.md 12.3), while streaming frame + epoch telemetry to any
   number of attached WebSocket subscribers (pdd.md 12.2);
-- :class:`Registry` — the process-wide collection of scenarios, runs, and batches.
+- :class:`Registry` - the process-wide collection of scenarios, runs, and batches.
 
 Determinism is preserved end-to-end: the controller never touches the simulation's
 RNG; it only gates *when* the deterministic ``step_epoch`` runs and how fast frames are
@@ -139,7 +139,7 @@ class RunController:
 
     Subscribers are asyncio queues; each emitted wire message (frame, then epoch) is
     fanned out to every subscriber. The first message a subscriber misses (slow client)
-    is dropped for that client only — the simulation never blocks on a consumer.
+    is dropped for that client only - the simulation never blocks on a consumer.
     """
 
     MAX_QUEUE = 2048
@@ -298,7 +298,7 @@ class RunController:
                 self.status = "stopped"
             else:
                 self.status = "finished"
-        except Exception as exc:  # noqa: BLE001 — surface any engine error as run state
+        except Exception as exc:  # noqa: BLE001 - surface any engine error as run state
             self.status = "error"
             self.error = f"{type(exc).__name__}: {exc}"
         finally:

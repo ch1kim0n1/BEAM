@@ -155,7 +155,7 @@ def _brute_force_optimum(state: WorldState) -> float:
 
     Enumerates every way to assign each live drone to one of the turrets or to 'none'
     (at-most-one-turret-per-target is structural), then the best firing order per
-    turret. Tiny instances only — this is the optimal the heuristic is graded against
+    turret. Tiny instances only - this is the optimal the heuristic is graded against
     (a CP-SAT reference would match this exactly; pdd.md section 9.2.6, mvp.md 4)."""
     live = [d for d in state.drones if d.state in ("alive", "engaged")]
     turrets = state.turrets

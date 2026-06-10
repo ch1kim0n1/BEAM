@@ -61,7 +61,7 @@ class FakeElement {
     this.attrs[k] = v;
   }
   /** True if a class name is present via classList, the `className` field, or a
-   *  `class` attribute — controls.ts uses the attr form, scoreboard.ts the field. */
+   *  `class` attribute - controls.ts uses the attr form, scoreboard.ts the field. */
   hasClass(name: string): boolean {
     if (this.classList.contains(name)) return true;
     const fromField = this.className.split(/\s+/);
@@ -153,7 +153,7 @@ const asDoc = (d: FakeDocument) => d as unknown as Document;
 const asRoot = (e: FakeElement) => e as unknown as HTMLElement;
 
 // --------------------------------------------------------------------------- //
-// controls.ts — pure helpers                                                  //
+// controls.ts - pure helpers                                                  //
 // --------------------------------------------------------------------------- //
 
 describe("controls pure helpers", () => {
@@ -213,7 +213,7 @@ describe("controls pure helpers", () => {
 });
 
 // --------------------------------------------------------------------------- //
-// controls.ts — DOM view behaviour                                            //
+// controls.ts - DOM view behaviour                                            //
 // --------------------------------------------------------------------------- //
 
 describe("ControlPanel view", () => {
@@ -339,7 +339,7 @@ describe("ControlPanel view", () => {
 });
 
 // --------------------------------------------------------------------------- //
-// scoreboard.ts — value accumulator + formatting                              //
+// scoreboard.ts - value accumulator + formatting                              //
 // --------------------------------------------------------------------------- //
 
 function frame(partial: Partial<FrameMessage> & Pick<FrameMessage, "t">): FrameMessage {
@@ -414,7 +414,7 @@ describe("scoreboard value accumulator", () => {
 });
 
 // --------------------------------------------------------------------------- //
-// scoreboard.ts — DOM view                                                    //
+// scoreboard.ts - DOM view                                                    //
 // --------------------------------------------------------------------------- //
 
 describe("Scoreboard view", () => {

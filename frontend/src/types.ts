@@ -1,10 +1,10 @@
-// BEAM shared wire types — the single source of truth the rest of the frontend
+// BEAM shared wire types - the single source of truth the rest of the frontend
 // imports. Mirrors the backend pydantic contract in backend/beam/schemas/models.py
 // and the REST envelopes in backend/beam/api/models.py (pdd.md sections 12 & 13).
 //
 // Every inbound wire message is described by a zod schema; the matching TypeScript
 // type is *inferred* from that schema (`z.infer<...>`), so the validator and the type
-// can never drift. Outbound (client -> server) shapes are plain interfaces — they are
+// can never drift. Outbound (client -> server) shapes are plain interfaces - they are
 // authored by us, validated by the server.
 //
 // IMPORTANT: keep SCHEMA_VERSION in sync with backend SCHEMA_VERSION
@@ -16,7 +16,7 @@ import { z } from "zod";
 export const SCHEMA_VERSION = "1.0" as const;
 
 // --------------------------------------------------------------------------- //
-// Enumerated states (string literals — stable across the wire)                //
+// Enumerated states (string literals - stable across the wire)                //
 // --------------------------------------------------------------------------- //
 
 export const DroneStateSchema = z.enum(["alive", "engaged", "dead", "leaked"]);
@@ -166,7 +166,7 @@ export const RunSummarySchema = z.object({
 export type RunSummary = z.infer<typeof RunSummarySchema>;
 
 // --------------------------------------------------------------------------- //
-// Telemetry wire models — server -> client (pdd.md section 12.2)               //
+// Telemetry wire models - server -> client (pdd.md section 12.2)               //
 // --------------------------------------------------------------------------- //
 
 export const DroneFrameSchema = z.object({
@@ -285,7 +285,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 
 // --------------------------------------------------------------------------- //
-// Control wire model — client -> server (pdd.md section 12.3)                  //
+// Control wire model - client -> server (pdd.md section 12.3)                  //
 // --------------------------------------------------------------------------- //
 
 export type ControlAction =
@@ -305,7 +305,7 @@ export interface ControlMessage {
 }
 
 // --------------------------------------------------------------------------- //
-// REST transport envelopes — mirrors backend/beam/api/models.py (pdd.md 12.1)  //
+// REST transport envelopes - mirrors backend/beam/api/models.py (pdd.md 12.1)  //
 // These are request/response shapes only; not part of the telemetry contract.  //
 // --------------------------------------------------------------------------- //
 

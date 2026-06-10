@@ -2,9 +2,9 @@
 
 Two responsibilities:
 
-1. **Build wire messages** from engine state — render-cadence
+1. **Build wire messages** from engine state - render-cadence
    :class:`~beam.schemas.FrameMessage` (one per simulation frame) and decision-cadence
-   :class:`~beam.schemas.EpochMessage` (one per decision epoch) — exactly per the
+   :class:`~beam.schemas.EpochMessage` (one per decision epoch) - exactly per the
    contract in pdd.md 12.2. Frame/epoch fractions (``hp_frac``, ``thermal_frac``,
    ``power_frac``) are derived and clamped here so every number on the wire is bounded.
 
@@ -19,7 +19,7 @@ Determinism rules honored here:
 - JSON is emitted with ``sort_keys=False`` but from pydantic ``model_dump`` whose field
   order is the (fixed) declaration order, and floats are serialized via Python's
   ``repr``-stable ``json`` encoder. No wall-clock, no RNG, no set iteration leaks into
-  the bytes — ``solve_ms`` (a timing measurement) is deliberately **excluded** from the
+  the bytes - ``solve_ms`` (a timing measurement) is deliberately **excluded** from the
   hash so the repro hash is invariant to machine speed while the full JSONL on disk
   still carries it for analysis.
 - ``BeamFrame`` is serialized ``by_alias=True`` so the wire key is ``"from"`` (pdd.md
@@ -310,7 +310,7 @@ class TelemetryRecorder:
         """Stable SHA-256 of the simulation-state telemetry stream (mvp.md §4-5).
 
         Hashes every message in emission order, with machine-dependent timing fields
-        stripped, so the hash depends only on the deterministic simulation — same seed
+        stripped, so the hash depends only on the deterministic simulation - same seed
         + same active solver yields the identical hash on any machine.
         """
         h = hashlib.sha256()

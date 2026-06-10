@@ -127,7 +127,7 @@ def _score_turret_order(
 
     Honors deadlines (TTI) and the thermal headroom cap, exactly as the model does.
     A target whose completion misses its deadline (or trips the thermal cap) is not
-    counted, but — matching the engine — sequencing continues for the rest.
+    counted, but - matching the engine - sequencing continues for the rest.
     """
     t = 0.0
     aim = turret.aim
@@ -283,7 +283,7 @@ def _tiny_scenarios() -> list[WorldState]:
     """A handful of tiny, hand-built instances small enough to brute force."""
     scenarios: list[WorldState] = []
 
-    # (1) Single turret, two close targets — ordering matters.
+    # (1) Single turret, two close targets - ordering matters.
     scenarios.append(
         WorldState(
             t=0.0,
@@ -297,7 +297,7 @@ def _tiny_scenarios() -> list[WorldState]:
         )
     )
 
-    # (2) Two turrets, three targets, mixed value — assignment + ordering.
+    # (2) Two turrets, three targets, mixed value - assignment + ordering.
     scenarios.append(
         WorldState(
             t=0.0,

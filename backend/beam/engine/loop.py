@@ -1,4 +1,4 @@
-"""The decision loop — BEAM's headless simulation driver (pdd.md sections 7.4, 9.3-9.4).
+"""The decision loop - BEAM's headless simulation driver (pdd.md sections 7.4, 9.3-9.4).
 
 This module ties the engine together. Each ``decision_period`` of sim-time it:
 
@@ -10,9 +10,9 @@ This module ties the engine together. Each ``decision_period`` of sim-time it:
 3. computes each solver's **optimality gap** versus the exact reference (``cp_sat``),
    honestly labelled as bound-/last-exact-based when the reference is throttled above
    ``solver.cp_sat_target_threshold`` (pdd.md 7.4 step 3, 9.3, 9.4);
-4. **advances** the turrets across the epoch in fixed integration sub-steps — slew to
+4. **advances** the turrets across the epoch in fixed integration sub-steps - slew to
    aim, settle, dwell/fire (Beer-Lambert delivery via :mod:`beam.engine.physics`),
-   thermal accumulation with forced-cooldown hysteresis (pdd.md 7.4 step 5, 8.2-8.6) —
+   thermal accumulation with forced-cooldown hysteresis (pdd.md 7.4 step 5, 8.2-8.6) -
    and moves the swarm (:mod:`beam.engine.kinematics`);
 5. **resolves** kills + leaks (:mod:`beam.engine.kill`), updates the cost **ledger**
    (:mod:`beam.cost.ledger`), and emits telemetry frame(s) + an
@@ -81,7 +81,7 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 
 # Numerical floor for the gap denominator (pdd.md 9.3: ``max(obj_optimal, epsilon)``).
-# Not a physics/cost constant — purely a divide-by-zero guard.
+# Not a physics/cost constant - purely a divide-by-zero guard.
 GAP_EPS: float = 1e-9
 
 
@@ -92,7 +92,7 @@ def compute_gap(obj_optimal: float, obj_policy: float) -> float:
 
     The sign convention matches the contract: the reference is a *maximization*
     objective (value destroyed), so a policy that does worse than optimal yields a
-    positive gap. The result is **not** clamped here — callers/labels decide how to
+    positive gap. The result is **not** clamped here - callers/labels decide how to
     present a (rare) negative gap; mvp.md §4 asserts gaps are non-negative when the
     reference is genuinely optimal.
     """
@@ -106,7 +106,7 @@ def compute_gap(obj_optimal: float, obj_policy: float) -> float:
 
 @dataclass(frozen=True)
 class LoopConfig:
-    """Structural knobs for the integrator — no physical meaning.
+    """Structural knobs for the integrator - no physical meaning.
 
     Attributes:
         substeps_per_epoch: how many fixed integration sub-steps each decision epoch is
@@ -117,7 +117,7 @@ class LoopConfig:
             terminates). ``0`` means "until all drones are dead or leaked".
         kwh_per_energy_unit: conversion from the simulation's illustrative delivered
             energy units to kWh for the cost ledger (pdd.md 10). Default 1.0 keeps the
-            units identity (illustrative, internally consistent — pdd.md 8/18).
+            units identity (illustrative, internally consistent - pdd.md 8/18).
         seconds_per_operating_unit: conversion from elapsed sim-seconds to the unit
             ``cost.maintenance_rate`` is denominated in. Default 1.0 charges
             maintenance per sim-second; set to 3600.0 to charge per operating-hour.

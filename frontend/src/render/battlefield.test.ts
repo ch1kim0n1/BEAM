@@ -1,6 +1,6 @@
 // Tests for the battlefield renderer. The GPU-backed Pixi Application is mocked so
 // these run headless under vitest/node: we exercise the pure interpolation math plus
-// the sprite-pooling contract (pdd.md 14.4 — never recreate display objects per
+// the sprite-pooling contract (pdd.md 14.4 - never recreate display objects per
 // frame; reuse freed slots) and the leak-flash trigger.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

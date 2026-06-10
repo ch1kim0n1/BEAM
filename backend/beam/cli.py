@@ -9,7 +9,7 @@ Console script registered in pyproject.toml as ``beam = "beam.cli:main"``.
 
 Determinism (pdd.md 7.4): ``run`` and ``batch`` drive the deterministic headless loop;
 the seed flows from the scenario/sweep spec (overridable on ``run`` via ``--seed``), and
-no physics/cost constant is introduced here — everything flows from :mod:`beam.config`.
+no physics/cost constant is introduced here - everything flows from :mod:`beam.config`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from typing import Optional, Sequence
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="beam",
-        description="BEAM — laser battery vs drone swarm DWTA simulation / OR tool.",
+        description="BEAM - laser battery vs drone swarm DWTA simulation / OR tool.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

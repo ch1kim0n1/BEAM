@@ -1,9 +1,9 @@
-"""Greedy solver #3 — most-urgent-killable first (pdd.md sections 9.2.3, 7).
+"""Greedy solver #3 - most-urgent-killable first (pdd.md sections 9.2.3, 7).
 
 Among the targets a turret can *still kill before they leak* (their hard deadline
 ``TTI_j``, pdd.md section 7.1), service the one with the **tightest feasible
 deadline** first. This is the "most-urgent-killable" heuristic of pdd.md section
-9.2.3 — usually the strongest of the three greedies because it never wastes a beam on
+9.2.3 - usually the strongest of the three greedies because it never wastes a beam on
 a target that cannot be saved, and it front-loads the ones about to leak.
 
 Model (pdd.md section 7.2). For one turret ``i`` servicing an ordered set of targets,
@@ -54,7 +54,7 @@ from beam.util import heading_to, vdist
 # Track-efficiency coefficients are not carried on the WorldState snapshot (only the
 # resolved weather alpha is). We read them from config (pdd.md section 18) so the
 # dwell-to-kill *estimate* used for scoring matches the falloff the engine actually
-# integrates — otherwise a steeper hardcoded falloff makes distant targets look
+# integrates - otherwise a steeper hardcoded falloff makes distant targets look
 # unkillable and the solver under-engages at range. Same import-time read as
 # greedy_threat; falls back to published defaults if config is unavailable.
 _TRACK_QUALITY: float = 1.0

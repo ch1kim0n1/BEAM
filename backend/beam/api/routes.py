@@ -12,7 +12,7 @@ Implements every endpoint in the contract:
     GET  /api/solvers             list available solvers + metadata
     GET  /api/weather             list weather profiles
 
-Every payload is validated against pydantic models — request bodies via the
+Every payload is validated against pydantic models - request bodies via the
 :mod:`beam.api.models` envelopes (which reuse, never redefine, the contract schemas),
 and control messages via the contract's :class:`~beam.schemas.ControlMessage`. The
 process-wide :class:`~beam.api.runtime.Registry` is read from ``request.app.state``.
@@ -61,7 +61,7 @@ router = APIRouter(prefix="/api")
 
 def _registry(request: Request) -> Registry:
     reg = getattr(request.app.state, "registry", None)
-    if reg is None:  # pragma: no cover — app factory always installs it
+    if reg is None:  # pragma: no cover - app factory always installs it
         raise HTTPException(status_code=500, detail="registry not initialised")
     return reg
 
@@ -93,7 +93,7 @@ def create_scenario(req: ScenarioCreateRequest, request: Request) -> ScenarioCre
         cfg = resolve_config(req.scenario, preset=req.preset)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"unknown preset {req.preset!r}")
-    except Exception as exc:  # noqa: BLE001 — surface validation failure to client
+    except Exception as exc:  # noqa: BLE001 - surface validation failure to client
         log.warning("create_scenario failed: %s", exc)
         raise HTTPException(status_code=422, detail=f"invalid scenario: {exc}")
 
@@ -198,7 +198,7 @@ def control_run(run_id: str, msg: ControlMessage, request: Request) -> RunContro
             if msg.multiplier is None:
                 raise HTTPException(status_code=422, detail="set_speed requires 'multiplier'")
             controller.set_speed(msg.multiplier)
-        else:  # pragma: no cover — Literal already constrains this
+        else:  # pragma: no cover - Literal already constrains this
             raise HTTPException(status_code=422, detail=f"unknown action {action!r}")
     except ValueError as exc:
         log.warning("control_run %s action=%s error: %s", run_id, action, exc)
@@ -218,7 +218,7 @@ def _ensure_started(controller: RunController) -> None:
     """Start the controller's driver if an event loop is running and it hasn't begun."""
     try:
         asyncio.get_running_loop()
-    except RuntimeError:  # pragma: no cover — only outside an async context
+    except RuntimeError:  # pragma: no cover - only outside an async context
         return
     if controller._task is None:
         controller.start()

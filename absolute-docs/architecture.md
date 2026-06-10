@@ -1,9 +1,9 @@
-# BEAM — Architecture & Flow Specification
+# BEAM - Architecture & Flow Specification
 
 | Field | Value |
 |---|---|
 | Document type | Architecture breakdown + end-to-end user/information flow |
-| Status | v1.0 — authoritative for system structure & data flow |
+| Status | v1.0 - authoritative for system structure & data flow |
 | Companion docs | `PRODUCT_DEVELOPMENT_DOCUMENT.md` (model/contract), `demo.md` (run-of-show), `design.md` (UI/UX) |
 | Audience | All engineers (backend, frontend, integration) |
 
@@ -85,12 +85,12 @@ BEAM has two planes. The **control plane** is request/response and changes *what
 
 ### 3.3 Sim Engine (`beam/engine/`)
 The deterministic core. One **tick** advances physics by `dt`; one **epoch** (every `decision_period`) triggers a re-solve. Subsystems, run in order each tick:
-1. **Kinematics** — advance drones per behavior (direct/flocking/staggered); update turret aim toward current target by slew rate.
-2. **Atmosphere** — compute delivered power per active beam via Beer-Lambert (`exp(-alpha·range)`).
-3. **Dwell/energy** — deposit energy onto engaged targets; `dwell-to-kill = E_kill / deposition_rate`.
-4. **Slew** — accumulate setup time for retargeting turrets.
-5. **Thermal** — heat firing turrets, cool idle ones, force cooldown at cap.
-6. **Kill resolution** — mark drones dead when cumulative energy ≥ `E_kill`; mark drones leaked when they reach the asset.
+1. **Kinematics** - advance drones per behavior (direct/flocking/staggered); update turret aim toward current target by slew rate.
+2. **Atmosphere** - compute delivered power per active beam via Beer-Lambert (`exp(-alpha·range)`).
+3. **Dwell/energy** - deposit energy onto engaged targets; `dwell-to-kill = E_kill / deposition_rate`.
+4. **Slew** - accumulate setup time for retargeting turrets.
+5. **Thermal** - heat firing turrets, cool idle ones, force cooldown at cap.
+6. **Kill resolution** - mark drones dead when cumulative energy ≥ `E_kill`; mark drones leaked when they reach the asset.
 - Owns `WorldState`; emits nothing itself (Telemetry reads from it).
 - **Single seeded RNG**, fixed iteration order. Reproducibility is a hard invariant (CI-gated).
 
@@ -240,7 +240,7 @@ UI  → WS: {action: set_weather, weather: fog}
 RunManager: enqueue; apply at NEXT TICK boundary (weather) / NEXT EPOCH (solver)
 SimEngine: subsequent ticks use new alpha  → longer dwell-to-kill
 Telemetry: frames/epochs reflect the change ─WS▶ UI updates
-            (no run restart, no reload — continuity preserved)
+            (no run restart, no reload - continuity preserved)
 ```
 > Why boundary-applied: applying mid-tick would break determinism and make the live gap comparison unfair. The queue + boundary rule is the contract.
 

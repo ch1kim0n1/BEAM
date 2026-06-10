@@ -1,4 +1,4 @@
-"""Greedy nearest-first solver (pdd.md sections 9.2.1, 7) — the baseline floor.
+"""Greedy nearest-first solver (pdd.md sections 9.2.1, 7) - the baseline floor.
 
 Each turret services the closest in-range, line-of-sight target first, then chains
 on additional reachable targets in nearest-next order, building a per-turret firing

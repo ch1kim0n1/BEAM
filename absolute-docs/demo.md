@@ -1,9 +1,9 @@
-# BEAM — Demo Script & Simulation Storyboard
+# BEAM - Demo Script & Simulation Storyboard
 
 | Field | Value |
 |---|---|
 | Document type | Demo specification (storyboard + run-of-show) |
-| Status | v1.0 — authoritative for the demo experience |
+| Status | v1.0 - authoritative for the demo experience |
 | Companion docs | `PRODUCT_DEVELOPMENT_DOCUMENT.md` (model/contract), `design.md` (visual/UX) |
 | Audience | Engineers building the demo flow + anyone presenting it |
 | Target runtime | 90 seconds core, expandable to ~3 min with narration |
@@ -46,14 +46,14 @@ Every preset must be reproducible: same seed → identical run. The demo machine
 
 Timecodes are cumulative from demo start. Each beat lists: on-screen action, what the operator does, the talk track, and what it proves.
 
-### Cold open — `0:00–0:06` (landing state)
+### Cold open - `0:00–0:06` (landing state)
 
 - **Screen:** App loads on the **P1 First Contact** preset, *paused at t=0*. Battlefield shows the asset glowing at center, 3 turret emplacements idle, 12 drone markers massed at the right edge holding position. Scoreboard reads `KILLS 0 · LEAKS 0 · PROTECTED 100%`. A single pulsing **RUN** button.
 - **Operator:** nothing yet. Let it sit for 2 seconds so the eye finds the asset, the turrets, the swarm.
 - **Talk track:** "This is a laser battery defending one target. Twelve drones are about to attack it."
 - **Proves:** orientation. (J, R, S)
 
-### Act 1 — `0:06–0:24` — First Contact (it's real)
+### Act 1 - `0:06–0:24` - First Contact (it's real)
 
 - **Operator:** press **RUN**.
 - **Screen:**
@@ -65,12 +65,12 @@ Timecodes are cumulative from demo start. Each beat lists: on-screen action, wha
 - **End state:** all 12 down, 0 leaks, clean. Brief 1s hold on `KILLS 12 · LEAKS 0`.
 - **Proves:** #1 (believable physics: slew, dwell, sequential kills). (J, R, S)
 
-### Transition — `0:24–0:28`
+### Transition - `0:24–0:28`
 
 - **Operator:** click **P2 The Race** preset; the view swaps to **solver-race split**, paused at t=0.
 - **Talk track:** "Same idea, but now the swarm is bigger and moving as a flock. And here's the real question: how should the battery decide who to shoot first?"
 
-### Act 2 — `0:28–0:50` — The Race (the decision matters)
+### Act 2 - `0:28–0:50` - The Race (the decision matters)
 
 - **Screen:** Split battlefield. **Left pane: `greedy_nearest`** (shoot whatever's closest). **Right pane: `auction`** (optimal-ish assignment). Identical swarm, identical seed, side by side. Each pane has its own mini-scoreboard.
 - **Operator:** press **RUN** (drives both panes in lockstep on the same clock).
@@ -82,12 +82,12 @@ Timecodes are cumulative from demo start. Each beat lists: on-screen action, wha
 - **End state:** hold 2s on the divergent scoreboards (e.g. left `PROTECTED 78%`, right `PROTECTED 96%`).
 - **Proves:** #2 (the decision is hard and consequential). (J, R, S)
 
-### Transition — `0:50–0:54`
+### Transition - `0:50–0:54`
 
 - **Operator:** click **P3 Saturation**. Single battlefield returns, paused. Gap chart now shows multiple solver series plus a distinct **optimal reference** line.
 - **Talk track:** "Now let's overwhelm it. Sixty drones, three waves, in fog."
 
-### Act 3 — `0:54–1:14` — Saturation (it can lose; the gap is real)
+### Act 3 - `0:54–1:14` - Saturation (it can lose; the gap is real)
 
 - **Screen:**
   - Fog visibly degrades the scene (desaturated overlay, longer beams, slower kills, because attenuation raises dwell-to-kill).
@@ -97,19 +97,19 @@ Timecodes are cumulative from demo start. Each beat lists: on-screen action, wha
 - **Talk track:** "Fog makes every kill slower. The swarm saturates one battery. Notice two things: drones now leak, and the gap between our fast solver and the proven optimum opens up, while the exact solver gets too slow to keep up. That tradeoff is the whole field."
 - **Proves:** #3 (a measurable optimum, an honest gap, the speed/quality tension) and reinforces #1 (weather physics). (S strongly, J, R)
 
-### Transition — `1:14–1:18`
+### Transition - `1:14–1:18`
 
 - **Operator:** click **P4 Breakeven**. View switches to **Analysis / batch** mode.
 - **Talk track:** "Last thing. These systems cost millions. Do they actually pay off?"
 
-### Act 4 — `1:18–1:32` — Breakeven (it pays off)
+### Act 4 - `1:18–1:32` - Breakeven (it pays off)
 
 - **Screen:** The breakeven dashboard animates a pre-computed sweep: x-axis = swarm size (10→120), two lines, **cumulative cost** (nearly flat, pennies per shot) and **value destroyed** (rising steeply). The **crossover point** is drawn with a vertical marker and a callout: e.g. `Net-positive past ~38 intercepts`. Net-position fills green to the right of the crossover.
 - **Operator:** optionally drag the **price-per-kWh** or **system-capex** slider to show the crossover move in real time.
 - **Talk track:** "Per shot the laser costs pennies against drones worth thousands. But the battery itself costs millions, so it only pays for itself past this crossover. We compute exactly where, for any assumptions you give us."
 - **Proves:** #4 (economic payoff, quantified). (J, R strongly)
 
-### Closer — `1:32–1:40`
+### Closer - `1:32–1:40`
 
 - **Operator:** press **RESET** → returns to P1 landing state, ready for the next viewer.
 - **Talk track:** "Believable engagement, an optimal targeting solver scored live, and the economics. That's BEAM."

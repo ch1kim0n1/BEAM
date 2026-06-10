@@ -1,30 +1,30 @@
-"""Headless batch sweeps — the breakeven + gap-vs-scale curves (pdd.md sections 10, 15).
+"""Headless batch sweeps - the breakeven + gap-vs-scale curves (pdd.md sections 10, 15).
 
 A *sweep* clones a base scenario, varies one parameter (default: swarm size) across a
 list of values, runs the full headless decision loop (:func:`beam.engine.loop.run_headless`)
 on a fixed seed at every point, and distills two headline analysis artifacts:
 
-1. **Cost-exchange breakeven** (pdd.md 10) — ``net_position`` of the active solver versus
+1. **Cost-exchange breakeven** (pdd.md 10) - ``net_position`` of the active solver versus
    swarm size, plus the **crossover** swarm size at which ``net_position`` changes sign
    (cheap-per-shot laser only goes net-positive past a volume of intercepts).
-2. **Gap-vs-scale** (pdd.md 15 Phase 2) — each enabled solver's average optimality gap
+2. **Gap-vs-scale** (pdd.md 15 Phase 2) - each enabled solver's average optimality gap
    versus the exact CP-SAT reference, as a function of swarm size. Gaps are reported as
    the loop computes them (pdd.md 9.3) and are non-negative whenever the reference is
    genuinely optimal.
 
 Everything is deterministic: a single fixed seed (from the sweep spec) drives every
 point, the swept values are taken in the spec's listed order, and solver iteration order
-is the spec's listed order. No physics/cost constant is introduced here — the sweep only
+is the spec's listed order. No physics/cost constant is introduced here - the sweep only
 *runs* the engine and *reads* its outputs; all tunables flow from :mod:`beam.config`.
 
 Artifacts (written under ``<out_dir>/runs/<sweep_id>/`` to match the run layout,
 pdd.md 12.2):
 
-- ``net_position_vs_swarm_size.csv`` — one row per sweep point: the swept value, the
+- ``net_position_vs_swarm_size.csv`` - one row per sweep point: the swept value, the
   active solver's net position, cumulative cost, value destroyed, kills, leaks.
-- ``gap_vs_swarm_size.csv`` — one row per sweep point: the swept value then one column
+- ``gap_vs_swarm_size.csv`` - one row per sweep point: the swept value then one column
   per solver carrying that solver's average gap at that point.
-- ``summary.json`` — the full structured result (both series + the breakeven crossover).
+- ``summary.json`` - the full structured result (both series + the breakeven crossover).
 """
 
 from __future__ import annotations

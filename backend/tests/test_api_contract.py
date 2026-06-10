@@ -10,7 +10,7 @@ Covers the REST surface and the WebSocket telemetry/control plane:
   (pause/resume/step/stop/set_solver/set_speed).
 
 Runs are kept tiny + fast by using a small-swarm scenario overlay and a fast solver
-suite (greedy heuristics only — no OR-Tools), so the suite is quick and deterministic.
+suite (greedy heuristics only - no OR-Tools), so the suite is quick and deterministic.
 """
 
 from __future__ import annotations

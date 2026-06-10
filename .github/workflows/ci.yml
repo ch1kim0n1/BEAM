@@ -1,7 +1,7 @@
 name: CI
 
 # Release gate (README "Reproducibility ... CI gate"): runs the backend test
-# suite — including the byte-identical telemetry-hash determinism test — and the
+# suite - including the byte-identical telemetry-hash determinism test - and the
 # frontend typecheck + build + unit tests on every push/PR to main.
 on:
   push:

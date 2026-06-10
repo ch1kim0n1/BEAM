@@ -1,11 +1,11 @@
-# BEAM — Product Development Document
+# BEAM - Product Development Document
 
-> **Project name:** `BEAM` — **B**attle **E**ngagement & **A**erial **M**itigation.
+> **Project name:** `BEAM` - **B**attle **E**ngagement & **A**erial **M**itigation.
 
 | Field | Value |
 |---|---|
 | Document type | Product Development Document (PDD) / Engineering Ground Truth |
-| Status | Draft v1.0 — authoritative for development |
+| Status | Draft v1.0 - authoritative for development |
 | Owner | Vlad (founder / architect) |
 | Audience | Engineers implementing the system |
 | Last updated | 2026-06-03 |
@@ -77,10 +77,10 @@ Standard WTA assumes a pool of weapons assigned in parallel. A **single laser is
 
 ### 3.3 Scope priority order (from product decisions)
 
-1. Laser targeting optimization (the solver suite + optimality gap) — primary.
-2. Physics realism (the four constraints, atmospheric model) — secondary.
-3. Visualization / demo (frontend carries) — tertiary but high-visibility.
-4. Adaptive swarm AI — deferred to future work.
+1. Laser targeting optimization (the solver suite + optimality gap) - primary.
+2. Physics realism (the four constraints, atmospheric model) - secondary.
+3. Visualization / demo (frontend carries) - tertiary but high-visibility.
+4. Adaptive swarm AI - deferred to future work.
 
 ---
 
@@ -129,7 +129,7 @@ The project is successful when:
 
 ---
 
-## 7. The optimization model (CONTRACT — correctness is defined here)
+## 7. The optimization model (CONTRACT - correctness is defined here)
 
 ### 7.1 Notation
 
@@ -161,7 +161,7 @@ A target `j` is **successfully killed** iff `C(j) <= TTI_j` and the turret's the
 maximize  Σ_j  v_j · [ C(j) <= TTI_j  AND  thermally_feasible(i, j, π) ]
 ```
 
-This is single-machine weighted throughput / weighted number of on-time jobs with sequence-dependent setup times — NP-hard in general; we solve it exactly for small assigned sets and heuristically otherwise.
+This is single-machine weighted throughput / weighted number of on-time jobs with sequence-dependent setup times - NP-hard in general; we solve it exactly for small assigned sets and heuristically otherwise.
 
 ### 7.3 Battery problem (parallel machines + assignment)
 
@@ -200,7 +200,7 @@ The reference (CP-SAT) runs every epoch when scale permits; above a configurable
 
 ---
 
-## 8. Physics model (illustrative, configurable — simulation only)
+## 8. Physics model (illustrative, configurable - simulation only)
 
 All constants live in config (section 18). Defaults are plausible and internally consistent, not real weapon data.
 
@@ -259,7 +259,7 @@ A target is killed at the instant cumulative delivered energy on it reaches `E_k
 
 ---
 
-## 9. Solver suite (the headline — pluggable)
+## 9. Solver suite (the headline - pluggable)
 
 ### 9.1 Solver interface (contract)
 
@@ -515,7 +515,7 @@ Target smooth rendering at hundreds of drones. Use Pixi sprite batching; never r
 
 ## 15. Build phases and acceptance criteria
 
-### Phase 1 — Sim core (headless, backend)
+### Phase 1 - Sim core (headless, backend)
 
 **Deliverables:** entity model; 2D kinematics; the four physics constraints (atmosphere, dwell-to-kill, slew, thermal); kill resolution; one greedy solver; deterministic seeding; JSON telemetry to file.
 
@@ -525,7 +525,7 @@ Target smooth rendering at hundreds of drones. Use Pixi sprite batching; never r
 - Physics sanity tests pass: kill time increases with range and with worse weather; slew time increases with angular distance; thermal cap forces cooldown.
 - A drone that is never engaged leaks; an engaged-in-time drone dies.
 
-### Phase 2 — The brain (solvers + cost, backend)
+### Phase 2 - The brain (solvers + cost, backend)
 
 **Deliverables:** full solver suite incl. CP-SAT exact; optimality-gap computation; cost ledger; FastAPI + WebSocket streaming; headless batch sweep producing breakeven + gap-vs-scale series.
 
@@ -536,7 +536,7 @@ Target smooth rendering at hundreds of drones. Use Pixi sprite batching; never r
 - Batch mode outputs a breakeven crossover point and a gap-vs-swarm-size curve.
 - Telemetry streams over WebSocket and validates against schema.
 
-### Phase 3 — Frontend (carries)
+### Phase 3 - Frontend (carries)
 
 **Deliverables:** Pixi battlefield, control panel, both dashboards, solver-race split view, scoreboard, dark tactical theme.
 
@@ -677,15 +677,15 @@ sim:
 
 ## 22. References (research grounding)
 
-- Lloyd, S. P., & Witsenhausen, H. S. (1986). Weapons allocation is NP-complete. *Proc. IEEE Summer Computer Simulation Conference.* — the NP-completeness result.
-- Ahuja, R. K., et al. — exact and heuristic algorithms for WTA (network/linear approaches).
-- Kline, A., Ahner, D., Hill, R. — survey of the Weapon-Target Assignment problem (static and dynamic formulations, exact vs heuristic), *Computers & Operations Research.*
-- Leboucher, C., et al. (2013) — real-time WTA solution under the "before targets reach goal" deadline constraint.
-- Hu et al. (2020) — Dynamic WTA via cross-entropy, *Mathematical Problems in Engineering.*
-- Recent (2025) work applying large language models to dynamic WTA (arXiv) — evidence the field is active.
-- Google OR-Tools (CP-SAT) — exact reference solver.
-- Reynolds, C. (1987) — Boids/flocking model for swarm behavior.
-- Beer-Lambert law — atmospheric attenuation model.
+- Lloyd, S. P., & Witsenhausen, H. S. (1986). Weapons allocation is NP-complete. *Proc. IEEE Summer Computer Simulation Conference.* - the NP-completeness result.
+- Ahuja, R. K., et al. - exact and heuristic algorithms for WTA (network/linear approaches).
+- Kline, A., Ahner, D., Hill, R. - survey of the Weapon-Target Assignment problem (static and dynamic formulations, exact vs heuristic), *Computers & Operations Research.*
+- Leboucher, C., et al. (2013) - real-time WTA solution under the "before targets reach goal" deadline constraint.
+- Hu et al. (2020) - Dynamic WTA via cross-entropy, *Mathematical Problems in Engineering.*
+- Recent (2025) work applying large language models to dynamic WTA (arXiv) - evidence the field is active.
+- Google OR-Tools (CP-SAT) - exact reference solver.
+- Reynolds, C. (1987) - Boids/flocking model for swarm behavior.
+- Beer-Lambert law - atmospheric attenuation model.
 - Publicly reported fielded laser counter-drone economics (cents-per-shot vs missile cost), used only as motivation for the cost model, not as engineering input.
 
 ---

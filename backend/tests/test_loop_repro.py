@@ -115,7 +115,7 @@ def _run(cfg, *, active="greedy_nearest", enabled=None, max_epochs=60, seed_over
 
 
 # --------------------------------------------------------------------------- #
-# 1) Reproducibility — the Phase-1 acceptance gate (mvp.md §4-5)               #
+# 1) Reproducibility - the Phase-1 acceptance gate (mvp.md §4-5)               #
 # --------------------------------------------------------------------------- #
 
 
@@ -129,7 +129,7 @@ def _enable_rng_jitter(cfg) -> None:
     """Turn on RNG-driven flocking heading jitter so the run seed actually bites.
 
     The default ``swarm_24`` config has ``jitter: 0.0`` and no staggered arc jitter, so
-    nothing consumes the run RNG and any seed yields the same telemetry — itself a
+    nothing consumes the run RNG and any seed yields the same telemetry - itself a
     determinism property. To prove the *seed* drives randomness we feed a kinematics
     overlay (via the scenario dict the loop reads) that enables jitter.
     """
