@@ -19,7 +19,6 @@ import io
 import pytest
 
 from beam.batch.sweeps import (
-    BreakevenCrossover,
     SweepPoint,
     SweepSpec,
     find_breakeven,

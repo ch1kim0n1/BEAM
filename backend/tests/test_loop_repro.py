@@ -29,7 +29,6 @@ from beam.engine.loop import (
 )
 from beam.engine.telemetry import (
     TelemetryRecorder,
-    build_frame_message,
 )
 from beam.schemas import Assignment, BeamFrame, WorldState
 from beam.util import vdist
@@ -230,7 +229,7 @@ def test_only_active_solver_assignment_is_executed(cfg):
 
 def test_jsonl_interleaves_frames_and_epochs(cfg):
     _, rec = _run(cfg, max_epochs=4)
-    lines = [json.loads(l) for l in rec.jsonl().split("\n")]
+    lines = [json.loads(raw) for raw in rec.jsonl().split("\n")]
     types = [m["type"] for m in lines]
     # One frame + one epoch per decision epoch, in that order.
     assert types == ["frame", "epoch"] * 4

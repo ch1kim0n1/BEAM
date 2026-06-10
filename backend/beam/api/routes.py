@@ -21,9 +21,12 @@ process-wide :class:`~beam.api.runtime.Registry` is read from ``request.app.stat
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+
+log = logging.getLogger(__name__)
 
 from beam.api.models import (
     BatchResultsResponse,
@@ -91,11 +94,13 @@ def create_scenario(req: ScenarioCreateRequest, request: Request) -> ScenarioCre
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"unknown preset {req.preset!r}")
     except Exception as exc:  # noqa: BLE001 — surface validation failure to client
+        log.warning("create_scenario failed: %s", exc)
         raise HTTPException(status_code=422, detail=f"invalid scenario: {exc}")
 
     reg = _registry(request)
     assert cfg.scenario is not None
     scenario_id = reg.scenarios.create(cfg.scenario)
+    log.info("scenario created  id=%s  preset=%s", scenario_id, req.preset)
     return ScenarioCreateResponse(scenario_id=scenario_id)
 
 
@@ -135,6 +140,7 @@ def start_run(req: RunStartRequest, request: Request) -> RunStartResponse:
     try:
         cfg = resolve_config(overlay)
     except Exception as exc:  # noqa: BLE001
+        log.warning("start_run config error: %s", exc)
         raise HTTPException(status_code=422, detail=f"invalid scenario: {exc}")
 
     run_id = reg.new_run_id()
@@ -145,6 +151,10 @@ def start_run(req: RunStartRequest, request: Request) -> RunStartResponse:
         enabled_solvers=enabled,
     )
     reg.runs[run_id] = controller
+    log.info(
+        "run started  id=%s  scenario=%s  solver=%s  enabled=%s",
+        run_id, req.scenario_id, active, controller.enabled_solvers,
+    )
     return RunStartResponse(
         run_id=run_id,
         active_solver=controller.active_solver,
@@ -191,8 +201,10 @@ def control_run(run_id: str, msg: ControlMessage, request: Request) -> RunContro
         else:  # pragma: no cover — Literal already constrains this
             raise HTTPException(status_code=422, detail=f"unknown action {action!r}")
     except ValueError as exc:
+        log.warning("control_run %s action=%s error: %s", run_id, action, exc)
         raise HTTPException(status_code=422, detail=str(exc))
 
+    log.debug("control_run %s action=%s", run_id, action)
     return RunControlResponse(
         run_id=run_id,
         action=action,
@@ -258,9 +270,11 @@ async def start_batch(req: BatchStartRequest, request: Request) -> BatchStartRes
     async def _drive() -> None:
         try:
             await asyncio.to_thread(run_batch, job, reg.scenarios)
+            log.info("batch finished  id=%s  status=%s", batch_id, job.status)
         except Exception as exc:  # noqa: BLE001
             job.status = "error"
             job.error = f"{type(exc).__name__}: {exc}"
+            log.error("batch error  id=%s  %s", batch_id, job.error)
 
     asyncio.ensure_future(_drive())
     return BatchStartResponse(batch_id=batch_id, status=job.status)

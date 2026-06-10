@@ -19,9 +19,12 @@ applies inbound control messages. The connection closes when the run ends (a sen
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+log = logging.getLogger(__name__)
 from pydantic import ValidationError
 
 from beam.api.runtime import Registry, RunController
@@ -72,10 +75,12 @@ async def run_telemetry(websocket: WebSocket, run_id: str) -> None:
 
     await websocket.accept()
     if controller is None:
+        log.warning("ws connect rejected: unknown run %s", run_id)
         await websocket.send_json({"type": "error", "detail": f"unknown run {run_id!r}"})
         await websocket.close()
         return
 
+    log.info("ws connect  run=%s", run_id)
     queue = controller.subscribe()
     # Start (or attach to) the deterministic driver. Idempotent: many sockets, one run.
     controller.start()
@@ -117,6 +122,7 @@ async def run_telemetry(websocket: WebSocket, run_id: str) -> None:
         reader_task.cancel()
     finally:
         controller.unsubscribe(queue)
+        log.info("ws disconnect  run=%s  status=%s", run_id, controller.status)
         try:
             await websocket.close()
         except RuntimeError:  # already closed

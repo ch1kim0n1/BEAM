@@ -10,20 +10,21 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Vlad" }]
 dependencies = [
-    "numpy",
-    "ortools",
-    "fastapi",
-    "uvicorn[standard]",
-    "websockets",
-    "pydantic>=2",
-    "pyyaml",
-    "httpx",
+    "numpy>=1.26",
+    "ortools>=9.10",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "websockets>=12.0",
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "ruff>=0.4",
 ]
 
 [project.scripts]
@@ -36,3 +37,17 @@ include = ["beam*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# E + F: syntax/undefined-name errors (true bugs). I/UP/B are style/upgrade
+# improvements tracked separately; add them incrementally as the codebase is cleaned.
+select = ["E", "F"]
+ignore = [
+    "E501",  # line length — not enforced here
+    "E402",  # module-level import not at top — beam.api.app intentionally late-imports
+             # solvers after configure_logging() to sequence startup correctly
+]

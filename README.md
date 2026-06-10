@@ -144,7 +144,7 @@ The engine, solvers, and ledger run fully headless for batch sweeps. The fronten
 
 ```
 /
-├── PRODUCT_DEVELOPMENT_DOCUMENT.md   # the spec / ground truth
+├── absolute-docs/pdd.md              # the spec / ground truth
 ├── README.md
 ├── backend/
 │   ├── pyproject.toml
@@ -179,6 +179,26 @@ cd frontend && npm test
 - **Reproducibility:** same seed + solver yields a byte-identical telemetry hash (CI gate).
 - **Contracts:** all REST/WebSocket payloads validated both ends.
 
+## Deployment (Docker)
+
+```bash
+# Build and start backend (:8000) + frontend (:80) together.
+docker compose up --build
+
+# Production: set these in a .env file at the repo root:
+#   CORS_ORIGINS=https://beam.example.com
+#   PORT=8000
+#   FRONTEND_PORT=80
+#   BEAM_LOG_LEVEL=INFO
+```
+
+The backend container runs `beam serve --host 0.0.0.0`. The frontend container
+builds the Vite app pointing at the backend (`VITE_API_URL` build arg) then serves
+the resulting static files via nginx.
+
+For local development the documented Quickstart (`beam serve` + `npm run dev`) is
+faster. Docker is for hosted / CI deployments.
+
 ## Roadmap
 
 - [x] Phase 1 — sim core (physics, kinematics, kill resolution, deterministic seeding)
@@ -190,7 +210,7 @@ cd frontend && npm test
 
 ## Contributing
 
-`PRODUCT_DEVELOPMENT_DOCUMENT.md` is the authoritative spec. If code and the PDD disagree, that is a bug. Propose changes via PR against that file. New solvers and weather profiles drop in through their respective interfaces with no engine changes.
+`absolute-docs/pdd.md` is the authoritative spec. If code and the PDD disagree, that is a bug. Propose changes via PR against that file. New solvers and weather profiles drop in through their respective interfaces with no engine changes.
 
 ## References
 

@@ -279,7 +279,6 @@ class CpSatSolver:
             model.AddCircuit(arcs)
 
             # ---- Completion-time accumulation along the chosen circuit ----------
-            big_m = _INF_MS
             for j in cand:
                 # If depot -> j chosen, completion[j] = slew(aim,j) + dwell[j].
                 s0 = self._slew_ms(turrets[i], turrets[i].aim, aim_to[i][j])

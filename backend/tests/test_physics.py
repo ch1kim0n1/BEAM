@@ -23,7 +23,6 @@ import pytest
 
 from beam.config import load_config
 from beam.engine.physics import (
-    ThermalResult,
     delivered_power,
     deposition_rate,
     dwell_to_kill,

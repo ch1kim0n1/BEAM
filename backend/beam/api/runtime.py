@@ -28,7 +28,7 @@ from beam.config import BeamConfig, load_config
 from beam.engine.loop import DecisionLoop, LoopConfig, build_scenario
 from beam.engine.telemetry import TelemetryRecorder, build_epoch_message
 from beam.schemas import RunSummary, Scenario
-from beam.solvers import REGISTRY, available_solvers
+from beam.solvers import available_solvers
 
 __all__ = [
     "DEFAULT_REFERENCE_SOLVER",

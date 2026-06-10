@@ -296,8 +296,8 @@ def test_determinism_spawn_same_seed_identical(kin: KinematicsConfig) -> None:
 
 def test_determinism_different_seed_differs() -> None:
     kin = KinematicsConfig.from_raw(_raw_kinematics())
-    a = _run_flock_trajectory(1, kin)
-    b = _run_flock_trajectory(2, kin)
+    _a = _run_flock_trajectory(1, kin)
+    _b = _run_flock_trajectory(2, kin)
     # Jitter defaults to 0 so flocking alone is seed-independent in motion; the spawn
     # ring is deterministic regardless of seed for a full circle. We assert the
     # *with-jitter* case differs to prove RNG actually drives variation.

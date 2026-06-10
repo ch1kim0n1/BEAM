@@ -25,13 +25,12 @@ import itertools
 import math
 from typing import Optional
 
-import numpy as np
 import pytest
 
 from beam.config import load_config
 from beam.engine import kinematics, physics
 from beam.schemas import Assignment, Drone, ThermalConfig, Turret, Vec2, WorldState
-from beam.solvers import REGISTRY, available_solvers, get_solver_class
+from beam.solvers import available_solvers, get_solver_class
 from beam.util import angular_distance, vdist
 
 

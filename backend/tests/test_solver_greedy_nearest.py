@@ -18,9 +18,8 @@ from __future__ import annotations
 
 import itertools
 import math
-from typing import Iterable, Optional
+from typing import Iterable
 
-import pytest
 
 from beam.config import load_config
 from beam.engine import physics
