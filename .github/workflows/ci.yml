@@ -21,13 +21,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install (editable + dev extras)
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install (editable + dev + rust extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,rust]"
+      - name: Build Rust extension
+        working-directory: backend/beam_physics
+        run: maturin build --interpreter python && pip install target/wheels/*.whl
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Tests (with Rust extension)
+        run: pytest -q
+
+  backend-no-rust:
+    name: backend (pytest, numpy fallback)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install (editable + dev, no Rust)
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: Lint (ruff)
-        run: ruff check .
-      - name: Tests
+      - name: Tests (numpy fallback path)
         run: pytest -q
 
   frontend:
